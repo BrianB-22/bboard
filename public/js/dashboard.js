@@ -457,7 +457,7 @@ function showPage(idx) {
   pages.forEach((p, i) => p.classList.toggle('active', i === idx));
   document.querySelectorAll('.page-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
   currentPage = idx;
-  const onHome = config.pages[idx]?.screen === 'home';
+  const onHome = config.pages[idx]?.id === 'home';
   const corner = document.getElementById('yl-top-right');
   if (corner) corner.hidden = !onHome;
 }
@@ -507,7 +507,7 @@ function updateAlertBanner(data) {
     corner.id = 'yl-top-right';
     document.body.appendChild(corner);
   }
-  corner.hidden = config.pages[currentPage]?.screen !== 'home';
+  corner.hidden = config.pages[currentPage]?.id !== 'home';
 
   let banner = document.getElementById('yl-alert-banner');
   if (!banner) {
