@@ -25,6 +25,12 @@
       "background": "dark-slate",
       "duration": 60,
       "enabled": true
+    },
+    {
+      "screen": "home",
+      "background": "dark-blue",
+      "duration": 60,
+      "enabled": true
     }
   ]
 }

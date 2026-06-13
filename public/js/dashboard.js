@@ -1,11 +1,11 @@
-import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates } from './api.js';
+import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink } from './api.js';
 import {
   renderClock, renderAQI, renderAlerts, renderIframe, renderImage,
   renderWeatherCurrent, renderWeatherHourly, renderWeatherDaily,
   renderNHLScores, renderNHLSchedule, renderNHLBracket, renderRSS,
   renderText, renderScheduledText, renderCountdown, renderSunTimes,
   renderGauge, renderJSON, renderCalendar, renderWeekCalendar,
-  renderAstroInfo, renderCalendarMonth,
+  renderAstroInfo, renderCalendarMonth, renderYoLink,
 } from './widgets.js';
 
 let config = null;
@@ -332,6 +332,17 @@ async function mountWidget(widgetCfg) {
     case 'astro-info':
       renderAstroInfo(el);
       break;
+
+    case 'yolink': {
+      const d = await fetchYoLink().catch(() => null);
+      renderYoLink(el, d);
+      setInterval(async () => {
+        const nd = await fetchYoLink().catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderYoLink(el, nd);
+      }, (widgetCfg.refresh || 300) * 1000);
+      break;
+    }
 
     case 'calendar-month': {
       const cd = await fetchCustomDates().catch(() => ({ dates: [] }));

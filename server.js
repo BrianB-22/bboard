@@ -296,6 +296,103 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
+// ─── YoLink ──────────────────────────────────────────────────────
+let _yolinkToken = null;
+let _yolinkTokenExpiry = 0;
+
+async function getYoLinkToken() {
+  if (_yolinkToken && Date.now() < _yolinkTokenExpiry) return _yolinkToken;
+  const r = await fetch('https://api.yosmart.com/open/yolink/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=client_credentials&client_id=${process.env.YOLINK_UAID}&client_secret=${process.env.YOLINK_SECRET}`,
+  });
+  const data = await r.json();
+  if (!data.access_token) throw new Error(`YoLink auth failed: ${JSON.stringify(data)}`);
+  _yolinkToken = data.access_token;
+  _yolinkTokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+  return _yolinkToken;
+}
+
+async function yolinkCall(method, extra = {}) {
+  const token = await getYoLinkToken();
+  const r = await fetch('https://api.yosmart.com/open/yolink/v2/api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ method, ...extra }),
+  });
+  return r.json();
+}
+
+const YOLINK_STATE_METHODS = {
+  THSensor:     'THSensor.getState',
+  DoorSensor:   'DoorSensor.getState',
+  MotionSensor: 'MotionSensor.getState',
+};
+
+let _yolinkDevices = null;
+let _yolinkDeviceExpiry = 0;
+
+async function getYoLinkDevices() {
+  if (_yolinkDevices && Date.now() < _yolinkDeviceExpiry) return _yolinkDevices;
+  const data = await yolinkCall('Home.getDeviceList');
+  _yolinkDevices = data.data?.devices ?? [];
+  _yolinkDeviceExpiry = Date.now() + 10 * 60 * 1000; // cache 10 min
+  return _yolinkDevices;
+}
+
+function normalizeYoLink(type, state, online, reportAt) {
+  if (type === 'THSensor') return {
+    temp: state?.temperature,
+    humidity: state?.humidity,
+    unit: state?.mode === 'f' ? 'F' : 'C',
+    battery: state?.battery,
+    alarm: state?.alarm,
+    online, reportAt,
+  };
+  if (type === 'DoorSensor') return {
+    open: state?.state === 'open',
+    battery: state?.battery,
+    stateChangedAt: state?.stateChangedAt,
+    online, reportAt,
+  };
+  if (type === 'MotionSensor') return {
+    motion: state?.state === 'alert',
+    battery: state?.battery,
+    stateChangedAt: state?.stateChangedAt,
+    online, reportAt,
+  };
+  return { online, reportAt };
+}
+
+app.get('/api/yolink/states', async (req, res) => {
+  try {
+    const devices = await getYoLinkDevices();
+    const relevant = devices.filter(d => YOLINK_STATE_METHODS[d.type]);
+
+    const sensors = await Promise.all(relevant.map(async d => {
+      try {
+        const s = await yolinkCall(YOLINK_STATE_METHODS[d.type], {
+          targetDevice: d.deviceId,
+          token: d.token,
+        });
+        return {
+          id: d.deviceId,
+          name: d.name,
+          type: d.type,
+          ...normalizeYoLink(d.type, s.data?.state, s.data?.online, s.data?.reportAt),
+        };
+      } catch {
+        return { id: d.deviceId, name: d.name, type: d.type, online: false, error: true };
+      }
+    }));
+
+    res.json({ sensors });
+  } catch (e) {
+    res.status(500).json({ error: 'YoLink states failed', detail: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`bboard running at http://localhost:${PORT}`);
 });

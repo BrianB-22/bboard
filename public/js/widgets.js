@@ -1106,3 +1106,88 @@ export function renderCalendarMonth(el, customDates = []) {
     <div class="cal-grid">${cells}</div>
   `;
 }
+
+// ─── YoLink Sensors ──────────────────────────────────────────────
+export function renderYoLink(el, data) {
+  el.classList.add('widget-glass', 'widget-yolink');
+
+  if (!data || data.error || !data.sensors?.length) {
+    el.innerHTML = '<div class="yl-empty">Sensor data unavailable</div>';
+    return;
+  }
+
+  const sensors = data.sensors;
+  const temps    = sensors.filter(s => s.type === 'THSensor');
+  const doors    = sensors.filter(s => s.type === 'DoorSensor');
+  const motions  = sensors.filter(s => s.type === 'MotionSensor');
+
+  function timeSince(ms) {
+    if (!ms) return '';
+    const diff = Date.now() - ms;
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  // Collect system-level alerts across all sensors
+  const alerts = [];
+  sensors.forEach(s => {
+    if (s.battery != null && s.battery <= 1) alerts.push(`🔋 ${s.name} battery low`);
+    if (s.alarm?.lowBattery) alerts.push(`🔋 ${s.name} battery low`);
+    if (s.alarm?.highTemp) alerts.push(`🌡️ ${s.name} high temp`);
+    if (s.alarm?.lowTemp)  alerts.push(`❄️ ${s.name} low temp`);
+  });
+
+  const alertHTML = alerts.length ? `
+    <div class="yl-alerts">
+      ${alerts.map(a => `<div class="yl-alert-row">⚠️ ${a}</div>`).join('')}
+    </div>` : '';
+
+  const tempHTML = temps.length ? `
+    <div class="yl-section">
+      <div class="yl-section-title">🌡️ Temperature</div>
+      <div class="yl-temp-grid">
+        ${temps.map(s => {
+          const isFreezer = s.name.toLowerCase().includes('freez');
+          const tempAlert = isFreezer && s.unit === 'C' && s.temp > -10;
+          const tempColor = tempAlert ? 'var(--accent-red)' : '';
+          return `<div class="yl-temp-card ${tempAlert ? 'yl-alert' : ''}">
+            <div class="yl-temp-name">${s.name}</div>
+            <div class="yl-temp-val" style="color:${tempColor}">${s.temp != null ? s.temp.toFixed(1) : '--'}°${s.unit}</div>
+            <div class="yl-temp-hum">💧 ${s.humidity != null ? s.humidity.toFixed(0) : '--'}%</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  const doorHTML = doors.length ? `
+    <div class="yl-section">
+      <div class="yl-section-title">🚪 Doors</div>
+      <div class="yl-door-list">
+        ${doors.map(s => `
+          <div class="yl-door-row">
+            <span class="yl-door-dot ${s.open ? 'yl-open' : 'yl-closed'}"></span>
+            <span class="yl-door-name">${s.name}</span>
+            <span class="yl-door-state ${s.open ? 'yl-open-text' : ''}">${s.open ? 'OPEN' : 'Closed'}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const motionHTML = motions.length ? `
+    <div class="yl-section">
+      <div class="yl-section-title">📬 Activity</div>
+      <div class="yl-door-list">
+        ${motions.map(s => `
+          <div class="yl-door-row">
+            <span class="yl-door-dot ${s.motion ? 'yl-open' : 'yl-closed'}"></span>
+            <span class="yl-door-name">${s.name}</span>
+            <span class="yl-door-state">${timeSince(s.stateChangedAt)}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  el.innerHTML = alertHTML + tempHTML + doorHTML + motionHTML;
+}

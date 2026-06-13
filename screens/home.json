@@ -1,0 +1,22 @@
+{
+  "id": "home",
+  "name": "Home",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "home-clock",
+      "weekCalendar": true,
+      "style": {
+        "top": "1%", "left": "0.5%", "width": "46%", "height": "11%"
+      }
+    },
+    {
+      "type": "yolink",
+      "id": "home-sensors",
+      "refresh": 300,
+      "style": {
+        "top": "13%", "left": "0%", "width": "100%", "height": "85%"
+      }
+    }
+  ]
+}

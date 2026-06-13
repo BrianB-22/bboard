@@ -48,3 +48,8 @@ export async function fetchCustomDates() {
   const r = await fetch('/api/custom-dates');
   return r.json();
 }
+
+export async function fetchYoLink() {
+  const r = await fetch('/api/yolink/states');
+  return r.json();
+}
