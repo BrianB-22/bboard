@@ -342,14 +342,18 @@ async function getYoLinkDevices() {
 }
 
 function normalizeYoLink(type, state, online, reportAt) {
-  if (type === 'THSensor') return {
-    temp: state?.temperature,
-    humidity: state?.humidity,
-    unit: state?.mode === 'f' ? 'F' : 'C',
-    battery: state?.battery,
-    alarm: state?.alarm,
-    online, reportAt,
-  };
+  if (type === 'THSensor') {
+    const tempC = state?.temperature;
+    const fahrenheit = state?.mode === 'f';
+    return {
+      temp: fahrenheit && tempC != null ? +(tempC * 9/5 + 32).toFixed(1) : tempC,
+      humidity: state?.humidity,
+      unit: fahrenheit ? 'F' : 'C',
+      battery: state?.battery,
+      alarm: state?.alarm,
+      online, reportAt,
+    };
+  }
   if (type === 'DoorSensor') return {
     open: state?.state === 'open',
     battery: state?.battery,

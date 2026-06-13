@@ -1152,7 +1152,8 @@ export function renderYoLink(el, data) {
       <div class="yl-temp-grid">
         ${temps.map(s => {
           const isFreezer = s.name.toLowerCase().includes('freez');
-          const tempAlert = isFreezer && s.unit === 'C' && s.temp > -10;
+          const tempAlert = isFreezer && s.temp != null &&
+            (s.unit === 'C' ? s.temp > -10 : s.temp > 14);
           const tempColor = tempAlert ? 'var(--accent-red)' : '';
           return `<div class="yl-temp-card ${tempAlert ? 'yl-alert' : ''}">
             <div class="yl-temp-name">${s.name}</div>
