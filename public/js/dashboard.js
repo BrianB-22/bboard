@@ -498,18 +498,25 @@ function computeYoLinkAlerts(data) {
 }
 
 function updateAlertBanner(data) {
-  let badge = document.getElementById('yl-smoke-badge');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.id = 'yl-smoke-badge';
-    document.body.appendChild(badge);
+  let corner = document.getElementById('yl-top-right');
+  if (!corner) {
+    corner = document.createElement('div');
+    corner.id = 'yl-top-right';
+    document.body.appendChild(corner);
   }
 
   let banner = document.getElementById('yl-alert-banner');
   if (!banner) {
     banner = document.createElement('div');
     banner.id = 'yl-alert-banner';
-    document.body.appendChild(banner);
+    corner.appendChild(banner);
+  }
+
+  let badge = document.getElementById('yl-smoke-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'yl-smoke-badge';
+    corner.appendChild(badge);
   }
 
   const smoke = data?.sensors?.find(s => s.type === 'COSmokeSensor');
@@ -522,9 +529,11 @@ function updateAlertBanner(data) {
     ].filter(Boolean);
     const offline = smoke.online === false;
     badge.className = offline ? 'yl-smoke-badge-warn' : alarms.length ? 'yl-smoke-badge-alarm' : 'yl-smoke-badge-ok';
-    badge.innerHTML = offline ? '⚠ SMOKE ALARM: OFFLINE'
-      : alarms.length ? `🔥 SMOKE ALARM: ${alarms.join(' · ')}`
-      : '🛡 SMOKE ALARM: ALL CLEAR';
+    badge.innerHTML = offline
+      ? '<span>⚠ SMOKE ALARM</span><span>OFFLINE</span>'
+      : alarms.length
+        ? `<span>🔥 SMOKE ALARM</span><span>${alarms.join(' · ')}</span>`
+        : '<span>🛡 SMOKE ALARM</span><span>OPERATIONAL</span>';
     badge.hidden = false;
   } else {
     badge.hidden = true;
