@@ -353,9 +353,12 @@ async function yolinkCall(method, extra = {}) {
 }
 
 const YOLINK_STATE_METHODS = {
-  THSensor:     'THSensor.getState',
-  DoorSensor:   'DoorSensor.getState',
-  MotionSensor: 'MotionSensor.getState',
+  THSensor:      'THSensor.getState',
+  DoorSensor:    'DoorSensor.getState',
+  MotionSensor:  'MotionSensor.getState',
+  COSmokeSensor: 'COSmokeSensor.getState',
+  MultiOutlet:        'MultiOutlet.getState',
+  PowerFailureAlarm:  'PowerFailureAlarm.getState',
 };
 
 let _yolinkDevices = null;
@@ -392,6 +395,28 @@ function normalizeYoLink(type, state, online, reportAt) {
     motion: state?.state === 'alert',
     battery: state?.battery,
     stateChangedAt: state?.stateChangedAt,
+    online, reportAt,
+  };
+  if (type === 'COSmokeSensor') return {
+    smokeAlarm:    state?.state?.smokeAlarm    ?? false,
+    gasAlarm:      state?.state?.gasAlarm      ?? false,
+    highTempAlarm: state?.state?.highTempAlarm ?? false,
+    lowBattery:    state?.state?.sLowBattery   ?? false,
+    battery: state?.battery,
+    online, reportAt,
+  };
+  if (type === 'MultiOutlet') {
+    const channels = state?.state ?? [];
+    return {
+      on: channels.some(c => c === 'open'),
+      activeCount: channels.filter(c => c === 'open').length,
+      online, reportAt,
+    };
+  }
+  if (type === 'PowerFailureAlarm') return {
+    powerSupply: state?.powerSupply ?? true,
+    alarm: state?.state === 'alert',
+    battery: state?.battery,
     online, reportAt,
   };
   return { online, reportAt };

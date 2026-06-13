@@ -1243,6 +1243,26 @@ export function renderYoLinkDoor(el, sensor, cfg = {}, data) {
 }
 
 // ─── YoLink Sensors ──────────────────────────────────────────────
+// ─── YoLink Outlet (on/off status) ───────────────────────────────
+export function renderYoLinkOutlet(el, sensor, data) {
+  el.classList.add('widget-glass', 'widget-yl-door');
+
+  const hasError = !data || data.error || data._fetchError;
+  if (!sensor) {
+    el.innerHTML = `<div class="yld-name">Outside Power</div><div class="yld-state yld-unknown">${hasError ? '⚠' : '?'}</div>`;
+    return;
+  }
+
+  const offline = sensor.online === false;
+  const stateClass = offline ? 'yld-unknown' : sensor.on ? 'yld-open' : 'yld-closed';
+  const stateLabel = offline ? 'OFFLINE' : sensor.on ? 'ON' : 'OFF';
+
+  el.innerHTML = `
+    <div class="yld-name ${offline ? 'ylt-offline' : ''}">${sensor.name}</div>
+    <div class="yld-state ${stateClass}">${stateLabel}</div>
+  `;
+}
+
 export function renderYoLink(el, data) {
   el.classList.add('widget-glass', 'widget-yolink');
 

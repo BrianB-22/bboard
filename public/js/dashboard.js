@@ -5,7 +5,7 @@ import {
   renderNHLScores, renderNHLSchedule, renderNHLBracket, renderRSS,
   renderText, renderScheduledText, renderCountdown, renderSunTimes,
   renderGauge, renderJSON, renderCalendar, renderWeekCalendar,
-  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp,
+  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp, renderYoLinkOutlet,
 } from './widgets.js';
 
 let config = null;
@@ -390,6 +390,18 @@ async function mountWidget(widgetCfg) {
       break;
     }
 
+    case 'yolink-outlet': {
+      const findOutlet = d => d?.sensors?.find(
+        s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
+      );
+      renderYoLinkOutlet(el, findOutlet(yolinkData), yolinkData);
+      yolinkCallbacks.push(d => {
+        el.innerHTML = ''; el.className = 'widget';
+        renderYoLinkOutlet(el, findOutlet(d), d);
+      });
+      break;
+    }
+
     case 'calendar-month': {
       const cd = await fetchCustomDates().catch(() => ({ dates: [] }));
       renderCalendarMonth(el, cd.dates || []);
@@ -458,6 +470,14 @@ function computeYoLinkAlerts(data) {
       alerts.push({ level: 'warn', msg: `🔋 ${s.name}: battery low` });
     if (s.online === false)
       alerts.push({ level: 'warn', msg: `📡 ${s.name}: offline` });
+    if (s.type === 'PowerFailureAlarm' && (s.alarm || s.powerSupply === false))
+      alerts.push({ level: 'error', msg: `⚡ ${s.name}: POWER FAILURE` });
+    if (s.type === 'COSmokeSensor') {
+      if (s.smokeAlarm)    alerts.push({ level: 'error', msg: `🔥 ${s.name}: SMOKE DETECTED` });
+      if (s.gasAlarm)      alerts.push({ level: 'error', msg: `☁️ ${s.name}: GAS/CO DETECTED` });
+      if (s.highTempAlarm) alerts.push({ level: 'error', msg: `🌡️ ${s.name}: HIGH TEMP ALARM` });
+      if (s.lowBattery)    alerts.push({ level: 'warn',  msg: `🔋 ${s.name}: battery low` });
+    }
     if (s.type === 'THSensor' && s.name.toLowerCase().includes('freez')) {
       const tooWarm = s.unit === 'C' ? s.temp > -10 : s.temp > 14;
       if (tooWarm) alerts.push({ level: 'error', msg: `❄️ ${s.name}: ${s.temp}°${s.unit} — too warm!` });

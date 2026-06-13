@@ -7,6 +7,7 @@
       "id": "home-clock",
       "style": { "top": "1%", "left": "0.5%", "width": "46%", "height": "9%" }
     },
+    { "type": "yolink-outlet", "id": "outlet-outside", "device": "Outside Power", "style": { "top": "1%", "left": "48%", "width": "24%", "height": "9%" } },
 
     { "type": "yolink-door", "id": "door-front",   "device": "Front Door",          "style": { "top": "12%", "left": "0.5%",  "width": "23.5%", "height": "28%" } },
     { "type": "yolink-door", "id": "door-back",    "device": "Back Door",            "style": { "top": "12%", "left": "25.5%", "width": "23.5%", "height": "28%" } },
