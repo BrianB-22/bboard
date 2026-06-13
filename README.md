@@ -12,6 +12,7 @@ A self-hosted dashboard for a always-on display — a free alternative to Dakboa
 - **Page rotation** — automatically cycles between screens on a configurable interval with indicator dots
 - **Hot reload** — all JSON config files are re-read on every request; no restart needed for layout changes
 - **No API keys** — uses Open-Meteo (weather/AQI), NWS (alerts), and the public NHL API, all free
+- **Easily extended** — add a new screen by dropping a JSON file in `screens/`; add a new background by adding an entry to `backgrounds.json` and a CSS class
 
 ## Stack
 
