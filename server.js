@@ -344,12 +344,19 @@ async function getYoLinkToken() {
 
 async function yolinkCall(method, extra = {}) {
   const token = await getYoLinkToken();
-  const r = await fetch('https://api.yosmart.com/open/yolink/v2/api', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({ method, ...extra }),
-  });
-  return r.json();
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 8000);
+  try {
+    const r = await fetch('https://api.yosmart.com/open/yolink/v2/api', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ method, ...extra }),
+      signal: abort.signal,
+    });
+    return r.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const YOLINK_STATE_METHODS = {
@@ -406,7 +413,7 @@ function normalizeYoLink(type, state, online, reportAt) {
     online, reportAt,
   };
   if (type === 'MultiOutlet') {
-    const channels = state?.state ?? [];
+    const channels = Array.isArray(state) ? state : [];
     return {
       on: channels.some(c => c === 'open'),
       activeCount: channels.filter(c => c === 'open').length,
