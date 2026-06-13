@@ -1170,6 +1170,18 @@ export function renderYoLinkTemp(el, sensor, history, hours, data) {
 
   const offline = sensor.online === false;
 
+  function fmtReportAt(ms) {
+    if (!ms) return '';
+    const d = new Date(ms);
+    const now = new Date();
+    const mins = Math.floor((now - d) / 60000);
+    if (mins < 1)  return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  const reportedLabel = sensor.reportAt ? `last reading ${fmtReportAt(sensor.reportAt)}` : '';
+
   el.innerHTML = `
     ${banner}
     <div class="ylt-name ${offline ? 'ylt-offline' : ''}">${sensor.name}${offline ? ' · offline' : ''}</div>
@@ -1177,6 +1189,7 @@ export function renderYoLinkTemp(el, sensor, history, hours, data) {
       <span class="ylt-temp">${sensor.temp != null ? sensor.temp.toFixed(1) : '--'}°${sensor.unit}</span>
       <span class="ylt-hum">💧 ${sensor.humidity != null ? sensor.humidity.toFixed(0) : '--'}%</span>
     </div>
+    ${reportedLabel ? `<div class="ylt-reported">${reportedLabel}</div>` : ''}
     <svg class="ylt-spark" viewBox="0 0 200 50" preserveAspectRatio="none">
       ${sparkline(readings, 200, 50)}
     </svg>

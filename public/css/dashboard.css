@@ -1464,6 +1464,13 @@ html, body {
   color: var(--text-secondary);
 }
 
+.ylt-reported {
+  font-size: clamp(0.5rem, 0.8vw, 0.68rem);
+  color: var(--text-secondary);
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
 .ylt-spark {
   flex: 1;
   width: 100%;
