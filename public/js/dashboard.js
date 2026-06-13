@@ -602,6 +602,14 @@ async function init() {
   showPage(0);
   if (!pinnedScreen) startRotation();
   scheduleNightlyReload();
+
+  const configSnapshot = JSON.stringify(config);
+  setInterval(async () => {
+    try {
+      const fresh = await fetchConfig();
+      if (JSON.stringify(fresh) !== configSnapshot) location.reload();
+    } catch {}
+  }, 5 * 60 * 1000);
 }
 
 function isNetworkError(err) {
