@@ -105,3 +105,7 @@ All free, no keys required:
 - [NHL API](https://api-web.nhle.com/) — scores, schedule, playoff bracket
 - [Nullschool Earth](https://earth.nullschool.net/) — wind/temp/precip/humidity maps
 - [Picsum Photos](https://picsum.photos/) — rotating background images
+
+---
+
+Built by [Brian Bernacki](https://bernacki.me)
