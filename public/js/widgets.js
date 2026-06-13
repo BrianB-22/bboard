@@ -1244,7 +1244,41 @@ export function renderYoLinkDoor(el, sensor, cfg = {}, data) {
   `;
 }
 
-// ─── YoLink Sensors ──────────────────────────────────────────────
+// ─── YoLink Smoke Alarm status badge ─────────────────────────────
+export function renderYoLinkSmoke(el, sensor) {
+  el.classList.add('widget-glass', 'yl-smoke-badge');
+
+  if (!sensor || sensor.online === false) {
+    el.innerHTML = `
+      <div class="yl-smoke-icon yl-smoke-warn">⚠</div>
+      <div class="yl-smoke-label">SMOKE ALARM</div>
+      <div class="yl-smoke-status yl-smoke-warn">OFFLINE</div>
+    `;
+    return;
+  }
+
+  const alarms = [
+    sensor.smokeAlarm    && 'SMOKE',
+    sensor.gasAlarm      && 'CO/GAS',
+    sensor.highTempAlarm && 'HIGH TEMP',
+    sensor.lowBattery    && 'LOW BATTERY',
+  ].filter(Boolean);
+
+  if (alarms.length) {
+    el.innerHTML = `
+      <div class="yl-smoke-icon yl-smoke-alarm">🔥</div>
+      <div class="yl-smoke-label">SMOKE ALARM</div>
+      <div class="yl-smoke-status yl-smoke-alarm">${alarms.join(' · ')}</div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div class="yl-smoke-icon yl-smoke-ok">🛡</div>
+      <div class="yl-smoke-label">SMOKE ALARM</div>
+      <div class="yl-smoke-status yl-smoke-ok">ALL CLEAR</div>
+    `;
+  }
+}
+
 // ─── YoLink Outlet (on/off status) ───────────────────────────────
 export function renderYoLinkOutlet(el, sensor, data) {
   el.classList.add('widget-glass', 'widget-yl-door');

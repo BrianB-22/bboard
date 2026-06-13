@@ -5,7 +5,7 @@ import {
   renderNHLScores, renderNHLSchedule, renderNHLBracket, renderRSS,
   renderText, renderScheduledText, renderCountdown, renderSunTimes,
   renderGauge, renderJSON, renderCalendar, renderWeekCalendar,
-  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp, renderYoLinkOutlet,
+  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp, renderYoLinkOutlet, renderYoLinkSmoke,
 } from './widgets.js';
 
 let config = null;
@@ -387,6 +387,15 @@ async function mountWidget(widgetCfg) {
         el.innerHTML = ''; el.className = 'widget';
         renderYoLinkDoor(el, findSensor(d), widgetCfg, d);
       });
+      break;
+    }
+
+    case 'yolink-smoke': {
+      const findSmoke = d => d?.sensors?.find(
+        s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
+      );
+      renderYoLinkSmoke(el, findSmoke(yolinkData));
+      yolinkCallbacks.push(d => { el.innerHTML = ''; el.className = 'widget'; renderYoLinkSmoke(el, findSmoke(d)); });
       break;
     }
 

@@ -1723,3 +1723,44 @@ html, body {
   color: #fff;
   border: 1px solid rgba(255,200,50,0.5);
 }
+
+/* ── Smoke alarm status badge ───────────────────────── */
+.yl-smoke-badge {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+}
+
+.yl-smoke-icon {
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.yl-smoke-label {
+  font-size: clamp(0.45rem, 0.7vw, 0.58rem);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.yl-smoke-status {
+  font-size: clamp(0.55rem, 0.9vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.yl-smoke-ok   { color: var(--accent-green); }
+.yl-smoke-alarm { color: var(--accent-red); }
+.yl-smoke-warn  { color: #f0c040; }
+
+.yl-smoke-badge .yl-smoke-label,
+.yl-smoke-badge .yl-smoke-status {
+  display: flex;
+  flex-direction: column;
+}
