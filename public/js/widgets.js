@@ -1107,6 +1107,73 @@ export function renderCalendarMonth(el, customDates = []) {
   `;
 }
 
+// ─── YoLink Temp Graph ───────────────────────────────────────────
+export function renderYoLinkTemp(el, sensor, history, hours) {
+  el.classList.add('widget-glass', 'widget-yl-temp');
+
+  if (!sensor) {
+    el.innerHTML = '<div class="ylt-empty">No data</div>';
+    return;
+  }
+
+  const readings = history?.[sensor.id]?.readings ?? [];
+
+  function sparkline(pts, w, h) {
+    if (pts.length < 2) return '';
+    const vals = pts.map(p => p.v);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = max - min || 1;
+    const pad = 4;
+    const points = pts.map((p, i) => {
+      const x = (i / (pts.length - 1)) * w;
+      const y = h - pad - ((p.v - min) / range) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    // Gradient fill area
+    const first = pts[0], last = pts[pts.length - 1];
+    const fx = 0, lx = w;
+    const fy = h - pad - ((first.v - min) / range) * (h - pad * 2);
+    const ly = h - pad - ((last.v - min) / range) * (h - pad * 2);
+    const area = `M ${fx} ${h} L ${fx} ${fy.toFixed(1)} ` +
+      pts.map((p, i) => {
+        const x = (i / (pts.length - 1)) * w;
+        const y = h - pad - ((p.v - min) / range) * (h - pad * 2);
+        return `L ${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' ') + ` L ${lx} ${h} Z`;
+    return `
+      <defs>
+        <linearGradient id="sg-${sensor.id}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${area}" fill="url(#sg-${sensor.id})"/>
+      <polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="2" y="${(h - 2).toFixed(0)}" class="spark-label">${min.toFixed(1)}°</text>
+      <text x="${(w - 2).toFixed(0)}" y="${(h - 2).toFixed(0)}" class="spark-label" text-anchor="end">${max.toFixed(1)}°</text>
+    `;
+  }
+
+  const rangeLabel = hours <= 24 ? '24h' : hours <= 168 ? '7d' : '30d';
+
+  el.innerHTML = `
+    <div class="ylt-name">${sensor.name}</div>
+    <div class="ylt-main">
+      <span class="ylt-temp">${sensor.temp != null ? sensor.temp.toFixed(1) : '--'}°${sensor.unit}</span>
+      <span class="ylt-hum">💧 ${sensor.humidity != null ? sensor.humidity.toFixed(0) : '--'}%</span>
+    </div>
+    <svg class="ylt-spark" viewBox="0 0 200 50" preserveAspectRatio="none">
+      ${sparkline(readings, 200, 50)}
+    </svg>
+    <div class="ylt-range-row">
+      <button class="ylt-range ${hours === 24  ? 'ylt-range-active' : ''}" data-h="24">24h</button>
+      <button class="ylt-range ${hours === 168 ? 'ylt-range-active' : ''}" data-h="168">7d</button>
+      <button class="ylt-range ${hours === 720 ? 'ylt-range-active' : ''}" data-h="720">30d</button>
+    </div>
+  `;
+}
+
 // ─── YoLink Door (single sensor square) ──────────────────────────
 export function renderYoLinkDoor(el, sensor, cfg = {}) {
   el.classList.add('widget-glass', 'widget-yl-door');

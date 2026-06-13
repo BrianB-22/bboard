@@ -53,3 +53,8 @@ export async function fetchYoLink() {
   const r = await fetch('/api/yolink/states');
   return r.json();
 }
+
+export async function fetchYoLinkHistory(hours = 24) {
+  const r = await fetch(`/api/yolink/history?hours=${hours}`);
+  return r.json();
+}

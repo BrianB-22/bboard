@@ -1,5 +1,5 @@
 import express from 'express';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -297,6 +297,32 @@ app.get('/api/proxy-image', async (req, res) => {
 });
 
 // ─── YoLink ──────────────────────────────────────────────────────
+const HISTORY_FILE = join(__dirname, 'data', 'temp-history.json');
+const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+let tempHistory = { sensors: {} };
+try { tempHistory = readJSON(HISTORY_FILE); } catch {}
+
+function saveHistory() {
+  try { writeFileSync(HISTORY_FILE, JSON.stringify(tempHistory)); } catch (e) { console.warn('History write failed:', e.message); }
+}
+
+function recordHistory(sensors) {
+  const now = Date.now();
+  const cutoff = now - ONE_MONTH_MS;
+  let dirty = false;
+  for (const s of sensors) {
+    if (s.type !== 'THSensor' || s.error || s.temp == null) continue;
+    if (!tempHistory.sensors[s.id]) tempHistory.sensors[s.id] = { name: s.name, unit: s.unit, readings: [] };
+    tempHistory.sensors[s.id].name = s.name;
+    tempHistory.sensors[s.id].unit = s.unit;
+    tempHistory.sensors[s.id].readings.push({ t: now, v: s.temp, h: s.humidity });
+    tempHistory.sensors[s.id].readings = tempHistory.sensors[s.id].readings.filter(r => r.t > cutoff);
+    dirty = true;
+  }
+  if (dirty) saveHistory();
+}
+
 let _yolinkToken = null;
 let _yolinkTokenExpiry = 0;
 
@@ -391,11 +417,43 @@ app.get('/api/yolink/states', async (req, res) => {
       }
     }));
 
+    recordHistory(sensors);
     res.json({ sensors });
   } catch (e) {
     res.status(500).json({ error: 'YoLink states failed', detail: e.message });
   }
 });
+
+app.get('/api/yolink/history', (req, res) => {
+  const hours = Math.min(parseInt(req.query.hours) || 24, 30 * 24);
+  const since = Date.now() - hours * 60 * 60 * 1000;
+  const result = {};
+  for (const [id, data] of Object.entries(tempHistory.sensors)) {
+    result[id] = {
+      name: data.name,
+      unit: data.unit,
+      readings: data.readings.filter(r => r.t >= since),
+    };
+  }
+  res.json(result);
+});
+
+// Server-side polling so history accumulates even when no browser is open
+async function pollYoLinkHistory() {
+  try {
+    const devices = await getYoLinkDevices();
+    const thSensors = devices.filter(d => d.type === 'THSensor');
+    const results = await Promise.all(thSensors.map(async d => {
+      const s = await yolinkCall('THSensor.getState', { targetDevice: d.deviceId, token: d.token });
+      return { id: d.deviceId, name: d.name, type: 'THSensor', ...normalizeYoLink('THSensor', s.data?.state, s.data?.online, s.data?.reportAt) };
+    }));
+    recordHistory(results);
+  } catch (e) {
+    console.warn('YoLink history poll failed:', e.message);
+  }
+}
+pollYoLinkHistory();
+setInterval(pollYoLinkHistory, 5 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`bboard running at http://localhost:${PORT}`);

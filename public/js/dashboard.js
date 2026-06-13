@@ -1,11 +1,11 @@
-import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink } from './api.js';
+import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory } from './api.js';
 import {
   renderClock, renderAQI, renderAlerts, renderIframe, renderImage,
   renderWeatherCurrent, renderWeatherHourly, renderWeatherDaily,
   renderNHLScores, renderNHLSchedule, renderNHLBracket, renderRSS,
   renderText, renderScheduledText, renderCountdown, renderSunTimes,
   renderGauge, renderJSON, renderCalendar, renderWeekCalendar,
-  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor,
+  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp,
 } from './widgets.js';
 
 let config = null;
@@ -349,6 +349,30 @@ async function mountWidget(widgetCfg) {
         renderYoLink(el, data);
       });
       break;
+
+    case 'yolink-temp': {
+      let tempHours = widgetCfg.hours || 24;
+      const findTemp = data => data?.sensors?.find(
+        s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
+      );
+
+      async function drawTemp() {
+        const hist = await fetchYoLinkHistory(tempHours).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderYoLinkTemp(el, findTemp(yolinkData), hist, tempHours);
+        el.querySelectorAll('.ylt-range').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            tempHours = parseInt(btn.dataset.h);
+            await drawTemp();
+          });
+        });
+      }
+
+      await drawTemp();
+      yolinkCallbacks.push(async () => drawTemp());
+      setInterval(drawTemp, 15 * 60 * 1000);
+      break;
+    }
 
     case 'yolink-door': {
       const findSensor = data => data?.sensors?.find(

@@ -1431,6 +1431,79 @@ html, body {
   color: var(--text-secondary);
 }
 
+/* ─── YoLink Temp Graph ──────────────────────────────────────── */
+.widget-yl-temp {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px 8px;
+  gap: 4px;
+}
+
+.ylt-name {
+  font-size: clamp(0.55rem, 0.9vw, 0.72rem);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.ylt-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ylt-temp {
+  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+  font-weight: 200;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.ylt-hum {
+  font-size: clamp(0.6rem, 1vw, 0.8rem);
+  color: var(--text-secondary);
+}
+
+.ylt-spark {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  overflow: visible;
+}
+
+.spark-label {
+  font-size: 7px;
+  fill: rgba(255,255,255,0.35);
+  font-family: var(--font-main);
+}
+
+.ylt-range-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ylt-range {
+  background: none;
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: clamp(0.5rem, 0.78vw, 0.62rem);
+  cursor: pointer;
+  font-family: var(--font-main);
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.ylt-range:hover      { border-color: var(--accent); color: var(--accent); }
+.ylt-range-active     { border-color: var(--accent); color: var(--accent); background: rgba(79,195,247,0.08); }
+
+.ylt-empty {
+  color: var(--text-secondary);
+  font-size: clamp(0.7rem, 1.2vw, 0.85rem);
+  padding: 20px;
+  text-align: center;
+}
+
 /* ─── YoLink Door (single square) ───────────────────────────── */
 .widget-yl-door {
   display: flex;
