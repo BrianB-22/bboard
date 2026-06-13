@@ -1710,18 +1710,18 @@ html, body {
 .yl-smoke-badge-alarm { background: rgba(200,30,30,0.82); color: #fff;    border: 1px solid rgba(255,80,80,0.5); }
 .yl-smoke-badge-warn  { background: rgba(180,130,0,0.82); color: #fff;    border: 1px solid rgba(255,200,50,0.5); }
 
-/* ── Alert banner (below smoke badge) ───────────────── */
+/* ── Alert banner (same row, stacks left of smoke badge) */
 #yl-alert-banner {
   position: fixed;
-  top: 52px;
-  right: 14px;
+  top: 14px;
+  right: 180px;
   z-index: 9999;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
-  max-width: 70vw;
+  max-width: calc(100vw - 200px);
   pointer-events: none;
 }
 #yl-alert-banner[hidden] { display: none; }
