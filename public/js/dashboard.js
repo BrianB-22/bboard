@@ -457,6 +457,9 @@ function showPage(idx) {
   pages.forEach((p, i) => p.classList.toggle('active', i === idx));
   document.querySelectorAll('.page-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
   currentPage = idx;
+  const onHome = config.pages[idx]?.screen === 'home';
+  const corner = document.getElementById('yl-top-right');
+  if (corner) corner.hidden = !onHome;
 }
 
 function startRotation() {
