@@ -1559,6 +1559,8 @@ html, body {
   color: var(--text-secondary);
 }
 
+.yld-recent { color: var(--accent-red); font-weight: 600; }
+
 /* ─── YoLink Sensors ─────────────────────────────────────────── */
 .widget-yolink {
   display: flex;

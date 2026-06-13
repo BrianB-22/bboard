@@ -1235,10 +1235,12 @@ export function renderYoLinkDoor(el, sensor, cfg = {}, data) {
       d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
+  const recentChange = sensor.stateChangedAt && (Date.now() - sensor.stateChangedAt) < 10 * 60 * 1000;
+
   el.innerHTML = `
     <div class="yld-name ${offline ? 'ylt-offline' : ''}">${sensor.name.replace(/\s+sensor$/i, '')}</div>
     <div class="yld-state ${offline ? 'yld-unknown' : sensor.open ? 'yld-open' : 'yld-closed'}">${offline ? 'OFFLINE' : sensor.open ? 'OPEN' : 'CLOSED'}</div>
-    <div class="yld-changed ${stale ? 'yl-status-warn' : ''}">${stale ? '⚠ stale · ' : ''}${fmtChanged(sensor.stateChangedAt)}</div>
+    <div class="yld-changed ${stale ? 'yl-status-warn' : recentChange ? 'yld-recent' : ''}">${stale ? '⚠ stale · ' : ''}${fmtChanged(sensor.stateChangedAt)}</div>
   `;
 }
 
