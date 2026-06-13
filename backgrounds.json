@@ -1,0 +1,32 @@
+{
+  "picsum-nature": {
+    "type": "picsum",
+    "keywords": "nature,landscape",
+    "rotate": 60,
+    "blur": false
+  },
+  "picsum-space": {
+    "type": "picsum",
+    "keywords": "space,galaxy",
+    "rotate": 90
+  },
+  "picsum-city": {
+    "type": "picsum",
+    "keywords": "city,architecture",
+    "rotate": 60
+  },
+  "animated-aurora": {
+    "type": "aurora"
+  },
+  "dark-blue": {
+    "type": "color",
+    "value": "linear-gradient(to bottom, #1a1a2e 0%, #16213e 40%, #0f3460 100%)"
+  },
+  "dark-slate": {
+    "type": "color",
+    "value": "linear-gradient(160deg, #0f0f1a 0%, #1a1a2e 50%, #111120 100%)"
+  },
+  "hockey-night": {
+    "type": "hockey-arena"
+  }
+}

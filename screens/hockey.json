@@ -1,0 +1,45 @@
+{
+  "id": "hockey",
+  "name": "Hockey Night",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "hockey-clock",
+      "style": {
+        "top": "1%", "left": "0.5%", "width": "20%", "height": "9%"
+      }
+    },
+    {
+      "type": "rss",
+      "id": "hockey-news",
+      "url": "https://www.nhl.com/rss/news.xml",
+      "title": "NHL News",
+      "count": 10,
+      "refresh": 600,
+      "style": {
+        "top": "1%", "left": "21%", "width": "35%", "height": "9%"
+      }
+    },
+    {
+      "type": "nhl-scores",
+      "id": "nhl-scores-today",
+      "style": {
+        "top": "11%", "left": "0%", "width": "28%", "height": "88%"
+      }
+    },
+    {
+      "type": "nhl-schedule",
+      "id": "nhl-schedule",
+      "style": {
+        "top": "11%", "left": "29%", "width": "30%", "height": "88%"
+      }
+    },
+    {
+      "type": "nhl-bracket",
+      "id": "nhl-bracket",
+      "style": {
+        "top": "11%", "left": "60%", "width": "40%", "height": "88%"
+      }
+    }
+  ]
+}

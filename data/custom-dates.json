@@ -1,0 +1,11 @@
+{
+  "dates": [
+    { "month": 3, "day": 22, "label": "Brian's Birthday" },
+    { "month": 3, "day": 24, "label": "Karen's Birthday" },
+    { "month": 11, "day": 24, "label": "Alex's Birthday" },
+    { "month": 11, "day": 25, "label": "Wedding Anniversary" },
+    { "month": 11, "day": 29, "label": "Andrew's Birthday" },
+    { "month": 2, "day": 7, "label": "Elisabeth & Joshua Birthday" },
+    { "month": 2, "day": 15, "label": "Sandy's Birthday" }
+  ]
+}

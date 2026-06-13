@@ -1,0 +1,30 @@
+{
+  "site": {
+    "title": "bboard",
+    "location": {
+      "lat": 34.92,
+      "lon": -80.74,
+      "name": "Charlotte, NC"
+    }
+  },
+  "pages": [
+    {
+      "screen": "weather",
+      "background": "animated-aurora",
+      "duration": 60,
+      "enabled": true
+    },
+    {
+      "screen": "hockey",
+      "background": "hockey-night",
+      "duration": 60,
+      "enabled": true
+    },
+    {
+      "screen": "calendar",
+      "background": "dark-slate",
+      "duration": 60,
+      "enabled": true
+    }
+  ]
+}

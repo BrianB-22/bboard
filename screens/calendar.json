@@ -1,0 +1,21 @@
+{
+  "id": "calendar",
+  "name": "Calendar",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "cal-clock",
+      "style": { "top": "1%", "left": "0.5%", "width": "22%", "height": "11%" }
+    },
+    {
+      "type": "astro-info",
+      "id": "cal-astro",
+      "style": { "top": "1%", "left": "23.5%", "width": "76%", "height": "11%" }
+    },
+    {
+      "type": "calendar-month",
+      "id": "cal-main",
+      "style": { "top": "14%", "left": "0.5%", "width": "99%", "height": "85%" }
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "id": "weather",
+  "name": "Weather",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "main-clock",
+      "weekCalendar": true,
+      "style": {
+        "top": "1%", "left": "0.5%", "width": "46%", "height": "11%"
+      }
+    },
+    {
+      "type": "alerts",
+      "id": "alerts-bar",
+      "style": {
+        "top": "1%", "left": "47%", "width": "38%", "height": "7%"
+      }
+    },
+    {
+      "type": "aqi",
+      "id": "aqi-badge",
+      "style": {
+        "top": "0.5%", "right": "0.5%", "width": "12%", "height": "12%"
+      }
+    },
+    {
+      "type": "iframe",
+      "id": "wind-map",
+      "cycleDuration": 30,
+      "cycle": [
+        { "src": "https://earth.nullschool.net/#current/wind/surface/level/orthographic=-79.8,33.0,1500",              "label": "Wind" },
+        { "src": "https://earth.nullschool.net/#current/temp/surface/level/orthographic=-79.8,33.0,1500",              "label": "Temperature" },
+        { "src": "https://earth.nullschool.net/#current/precip/surface/level/orthographic=-79.8,33.0,1500",            "label": "Precipitation" },
+        { "src": "https://earth.nullschool.net/#current/relative_humidity/surface/level/orthographic=-79.8,33.0,1500", "label": "Humidity" }
+      ],
+      "style": {
+        "top": "13%", "left": "0%", "width": "33%", "height": "60%"
+      }
+    },
+    {
+      "type": "image",
+      "id": "noaa-map",
+      "src": "/api/proxy-image?url=http%3A%2F%2Fwww.wpc.ncep.noaa.gov%2Fnoaa%2Fnational_forecast.jpg",
+      "refresh": 1800,
+      "style": {
+        "top": "13%", "left": "33%", "width": "34%", "height": "60%"
+      }
+    },
+    {
+      "type": "image",
+      "id": "radar",
+      "src": "/api/proxy-image?url=https%3A%2F%2Fradar.weather.gov%2Fridge%2Fstandard%2FKCAE_loop.gif",
+      "refresh": 300,
+      "style": {
+        "top": "13%", "left": "67%", "width": "33%", "height": "60%"
+      }
+    },
+    {
+      "type": "weather-current",
+      "id": "weather-now",
+      "style": {
+        "bottom": "0%", "left": "0%", "width": "30%", "height": "27%"
+      }
+    },
+    {
+      "type": "weather-hourly",
+      "id": "weather-hours",
+      "hours": 4,
+      "style": {
+        "bottom": "0%", "left": "30%", "width": "30%", "height": "27%"
+      }
+    },
+    {
+      "type": "weather-daily",
+      "id": "weather-days",
+      "days": 4,
+      "style": {
+        "bottom": "0%", "left": "60%", "width": "40%", "height": "27%"
+      }
+    }
+  ]
+}

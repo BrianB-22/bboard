@@ -1,0 +1,301 @@
+import express from 'express';
+import { readFileSync, existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const app = express();
+const PORT = process.env.PORT || 3030;
+
+app.use(express.static(join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    // Never cache JS/CSS so layout changes are always immediate
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.set('Cache-Control', 'no-store');
+    }
+  }
+}));
+
+function readJSON(path) {
+  return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+// Merges schedule.json + screens/*.json + backgrounds.json into one config
+app.get('/api/config', (req, res) => {
+  try {
+    const schedule = readJSON(join(__dirname, 'schedule.json'));
+    const backgrounds = readJSON(join(__dirname, 'backgrounds.json'));
+
+    const pages = schedule.pages
+      .map(p => {
+        const screenPath = join(__dirname, 'screens', `${p.screen}.json`);
+        if (!existsSync(screenPath)) {
+          console.warn(`Screen "${p.screen}" not found`);
+          return null;
+        }
+        const screen = readJSON(screenPath);
+        return {
+          ...screen,
+          duration: p.duration,
+          enabled: p.enabled !== false,
+          background: backgrounds[p.background] || { type: 'color', value: '#1a1a2e' },
+        };
+      })
+      .filter(Boolean);
+
+    res.json({ site: schedule.site, pages });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to build config', detail: e.message });
+  }
+});
+
+app.get('/api/weather', async (req, res) => {
+  const { lat, lon } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: 'lat/lon required' });
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,uv_index` +
+      `&hourly=temperature_2m,weather_code,precipitation_probability` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=5`;
+
+    const r = await fetch(url);
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'Weather fetch failed', detail: e.message });
+  }
+});
+
+app.get('/api/aqi', async (req, res) => {
+  const { lat, lon } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: 'lat/lon required' });
+
+  try {
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}` +
+      `&current=us_aqi,pm2_5,pm10,ozone&timezone=auto`;
+
+    const r = await fetch(url);
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'AQI fetch failed', detail: e.message });
+  }
+});
+
+const MOCK_ALERTS = {
+  features: [
+    { properties: { event: 'Severe Thunderstorm Warning', severity: 'Severe' } },
+    { properties: { event: 'Flash Flood Watch',           severity: 'Moderate' } },
+    { properties: { event: 'Heat Advisory',               severity: 'Minor' } },
+  ]
+};
+
+app.get('/api/alerts', async (req, res) => {
+  const { lat, lon, mock } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: 'lat/lon required' });
+  if (mock) return res.json(MOCK_ALERTS);
+  try {
+    const r = await fetch(
+      `https://api.weather.gov/alerts/active?point=${lat},${lon}`,
+      { headers: { 'User-Agent': 'bboard-dashboard (contact@localhost)' } }
+    );
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'Alerts fetch failed', detail: e.message });
+  }
+});
+
+function normalizeNHLGame(g) {
+  return {
+    gameState: g.gameState,
+    gameType: g.gameType,
+    period: g.periodDescriptor?.number,
+    clock: g.clock?.timeRemaining,
+    startTimeUTC: g.startTimeUTC,
+    startTime: g.startTimeUTC
+      ? new Date(g.startTimeUTC).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      : '',
+    awayAbbr: g.awayTeam?.abbrev,
+    homeAbbr: g.homeTeam?.abbrev,
+    awayScore: g.awayTeam?.score ?? '',
+    homeScore: g.homeTeam?.score ?? '',
+    seriesStatus: g.seriesStatus ?? null,
+  };
+}
+
+app.get('/api/nhl/scores', async (req, res) => {
+  try {
+    const r = await fetch('https://api-web.nhle.com/v1/scoreboard/now', {
+      headers: { 'User-Agent': 'bboard-dashboard' }
+    });
+    const raw = await r.json();
+
+    const gamesByDate = raw.gamesByDate ?? [];
+    const isPlayoffs = gamesByDate.flat().some(d => d.games?.some(g => g.gameType === 3));
+    const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+
+    // Find best date for the scores widget: today → most recent past → next upcoming
+    const past = gamesByDate.filter(d => d.date <= todayStr);
+    const future = gamesByDate.filter(d => d.date > todayStr);
+    const bestEntry = past.at(-1) ?? future[0] ?? {};
+    const games = (bestEntry.games ?? []).map(normalizeNHLGame);
+    const gamesDate = bestEntry.date ?? todayStr;
+
+    // Full schedule (all days returned by API)
+    const schedule = gamesByDate.map(d => ({
+      date: d.date,
+      games: (d.games ?? []).map(normalizeNHLGame),
+    }));
+
+    res.json({ games, gamesDate, schedule, isPlayoffs, todayStr });
+  } catch (e) {
+    res.status(500).json({ error: 'NHL fetch failed', detail: e.message });
+  }
+});
+
+app.get('/api/nhl/bracket', async (req, res) => {
+  try {
+    // Determine current season from scoreboard
+    const sbR = await fetch('https://api-web.nhle.com/v1/scoreboard/now', {
+      headers: { 'User-Agent': 'bboard-dashboard' }
+    });
+    const sb = await sbR.json();
+    const season = sb.gamesByDate?.[0]?.games?.[0]?.season;
+    if (!season) return res.json({ rounds: [], currentRound: 0 });
+
+    const r = await fetch(`https://api-web.nhle.com/v1/playoff-series/carousel/${season}`, {
+      headers: { 'User-Agent': 'bboard-dashboard' }
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'Bracket fetch failed', detail: e.message });
+  }
+});
+
+app.get('/api/rss', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'url required' });
+
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'bboard-dashboard' } });
+    const xml = await r.text();
+
+    // Minimal RSS parser — no dependencies
+    const feedTitle = (xml.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
+    const itemMatches = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/g)];
+    const items = itemMatches.slice(0, 20).map(m => {
+      const block = m[1];
+      const title = (block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/) || [])[1]?.trim() || '';
+      const link  = (block.match(/<link>([^<]*)<\/link>/) || [])[1]?.trim() || '';
+      return { title, link };
+    }).filter(i => i.title);
+
+    res.json({ feedTitle, items });
+  } catch (e) {
+    res.status(500).json({ error: 'RSS fetch failed', detail: e.message });
+  }
+});
+
+app.get('/api/custom-dates', (req, res) => {
+  try {
+    const data = readJSON(join(__dirname, 'data', 'custom-dates.json'));
+    res.json(data);
+  } catch (e) {
+    res.json({ dates: [] });
+  }
+});
+
+// Generic JSON proxy (avoids CORS issues with external APIs)
+app.get('/api/json-fetch', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'url required' });
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'bboard-dashboard' } });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'JSON fetch failed', detail: e.message });
+  }
+});
+
+// ICS/iCal calendar parser
+app.get('/api/ical', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'url required' });
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'bboard-dashboard' } });
+    const text = await r.text();
+    res.json({ events: parseICS(text) });
+  } catch (e) {
+    res.status(500).json({ error: 'iCal fetch failed', detail: e.message });
+  }
+});
+
+function parseICSDate(str) {
+  str = str.replace(/^TZID=[^:]+:/, '');
+  if (str.length === 8) {
+    return new Date(`${str.slice(0,4)}-${str.slice(4,6)}-${str.slice(6,8)}`);
+  }
+  if (str.includes('T')) {
+    const d = str.slice(0,8);
+    const t = str.slice(9,15);
+    const utc = str.endsWith('Z');
+    return new Date(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}T${t.slice(0,2)}:${t.slice(2,4)}:${t.slice(4,6)}${utc ? 'Z' : ''}`);
+  }
+  return null;
+}
+
+function parseICS(text) {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
+  const events = [];
+
+  for (const match of text.matchAll(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/g)) {
+    const block = match[1];
+    const get = (name) => {
+      const m = block.match(new RegExp(`${name}[^:]*:([^\r\n]+)`));
+      return m ? m[1].trim().replace(/\\,/g, ',').replace(/\\n/g, ' ') : '';
+    };
+
+    const summary = get('SUMMARY');
+    const dtstart = get('DTSTART');
+    if (!summary || !dtstart) continue;
+
+    const start = parseICSDate(dtstart);
+    if (!start || start < cutoff) continue;
+
+    events.push({
+      summary,
+      location: get('LOCATION'),
+      description: get('DESCRIPTION'),
+      start: start.toISOString(),
+      allDay: !dtstart.includes('T'),
+    });
+  }
+
+  return events.sort((a, b) => new Date(a.start) - new Date(b.start));
+}
+
+// Proxy images to avoid mixed-content (HTTP sources on HTTPS page) and CORS issues
+app.get('/api/proxy-image', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send('url required');
+  try {
+    const r = await fetch(url);
+    const buf = await r.arrayBuffer();
+    res.set('Content-Type', r.headers.get('content-type') || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=60');
+    res.send(Buffer.from(buf));
+  } catch (e) {
+    res.status(500).send('Proxy failed');
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`bboard running at http://localhost:${PORT}`);
+});
