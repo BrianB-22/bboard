@@ -1689,6 +1689,7 @@ html, body {
 
 /* ── YoLink alert banner ────────────────────────────── */
 /* ── Top-right overlay container ────────────────────── */
+#yl-top-right[hidden] { display: none !important; }
 #yl-top-right {
   position: fixed;
   top: 14px;
