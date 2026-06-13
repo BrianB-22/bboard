@@ -1107,6 +1107,39 @@ export function renderCalendarMonth(el, customDates = []) {
   `;
 }
 
+// ─── YoLink Door (single sensor square) ──────────────────────────
+export function renderYoLinkDoor(el, sensor, cfg = {}) {
+  el.classList.add('widget-glass', 'widget-yl-door');
+
+  if (!sensor) {
+    el.innerHTML = `<div class="yld-name">${cfg.device || '—'}</div><div class="yld-state yld-unknown">?</div>`;
+    return;
+  }
+
+  function fmtChanged(ms) {
+    if (!ms) return '';
+    const d = new Date(ms);
+    const now = new Date();
+    const diff = now - d;
+    const mins = Math.floor(diff / 60000);
+    const hrs  = Math.floor(diff / 3600000);
+
+    if (mins < 1)   return 'just now';
+    if (mins < 60)  return `${mins}m ago`;
+    if (hrs  < 24 && d.toDateString() === now.toDateString()) {
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  el.innerHTML = `
+    <div class="yld-name">${sensor.name}</div>
+    <div class="yld-state ${sensor.open ? 'yld-open' : 'yld-closed'}">${sensor.open ? 'OPEN' : 'CLOSED'}</div>
+    <div class="yld-changed">${fmtChanged(sensor.stateChangedAt)}</div>
+  `;
+}
+
 // ─── YoLink Sensors ──────────────────────────────────────────────
 export function renderYoLink(el, data) {
   el.classList.add('widget-glass', 'widget-yolink');

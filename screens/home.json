@@ -5,18 +5,23 @@
     {
       "type": "clock",
       "id": "home-clock",
-      "weekCalendar": true,
-      "style": {
-        "top": "1%", "left": "0.5%", "width": "46%", "height": "11%"
-      }
+      "style": { "top": "1%", "left": "0.5%", "width": "46%", "height": "10%" }
     },
+
+    { "type": "yolink-door", "id": "door-front",   "device": "Front Door",          "style": { "top": "13%", "left": "0.5%",  "width": "23.5%", "height": "35%" } },
+    { "type": "yolink-door", "id": "door-back",    "device": "Back Door",            "style": { "top": "13%", "left": "25.5%", "width": "23.5%", "height": "35%" } },
+    { "type": "yolink-door", "id": "door-garage1", "device": "Garage Door 1 Sensor", "style": { "top": "13%", "left": "50.5%", "width": "23.5%", "height": "35%" } },
+    { "type": "yolink-door", "id": "door-garage2", "device": "Garage Door 2",        "style": { "top": "13%", "left": "75.5%", "width": "24%",   "height": "35%" } },
+
+    { "type": "yolink-door", "id": "door-garage3", "device": "Garage Door 3",        "style": { "top": "50%", "left": "0.5%",  "width": "23.5%", "height": "35%" } },
+    { "type": "yolink-door", "id": "door-laundry", "device": "Laundry Room Door",    "style": { "top": "50%", "left": "25.5%", "width": "23.5%", "height": "35%" } },
+    { "type": "yolink-door", "id": "door-crawl",   "device": "Crawl Space Door",     "style": { "top": "50%", "left": "50.5%", "width": "23.5%", "height": "35%" } },
+    { "type": "yolink-door", "id": "door-gun",     "device": "Gun Closet Door",      "style": { "top": "50%", "left": "75.5%", "width": "24%",   "height": "35%" } },
+
     {
       "type": "yolink",
       "id": "home-sensors",
-      "refresh": 300,
-      "style": {
-        "top": "13%", "left": "0%", "width": "100%", "height": "85%"
-      }
+      "style": { "top": "87%", "left": "0%", "width": "100%", "height": "12%" }
     }
   ]
 }

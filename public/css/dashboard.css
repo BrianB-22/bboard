@@ -1431,6 +1431,41 @@ html, body {
   color: var(--text-secondary);
 }
 
+/* ─── YoLink Door (single square) ───────────────────────────── */
+.widget-yl-door {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 10px;
+}
+
+.yld-name {
+  font-size: clamp(0.55rem, 0.9vw, 0.75rem);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+.yld-state {
+  font-size: clamp(1.1rem, 2.2vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.yld-open   { color: var(--accent-red); text-shadow: 0 0 20px rgba(239,83,80,0.5); }
+.yld-closed { color: var(--accent-green); }
+.yld-unknown { color: var(--text-secondary); }
+
+.yld-changed {
+  font-size: clamp(0.5rem, 0.78vw, 0.62rem);
+  color: var(--text-secondary);
+}
+
 /* ─── YoLink Sensors ─────────────────────────────────────────── */
 .widget-yolink {
   display: flex;

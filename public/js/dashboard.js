@@ -5,7 +5,7 @@ import {
   renderNHLScores, renderNHLSchedule, renderNHLBracket, renderRSS,
   renderText, renderScheduledText, renderCountdown, renderSunTimes,
   renderGauge, renderJSON, renderCalendar, renderWeekCalendar,
-  renderAstroInfo, renderCalendarMonth, renderYoLink,
+  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor,
 } from './widgets.js';
 
 let config = null;
@@ -15,6 +15,8 @@ let rotateTimer = null;
 let weatherData = null;
 let aqiData = null;
 let weatherFailCount = 0;
+let yolinkData = null;
+const yolinkCallbacks = [];
 
 // ─── Failsafe reloads ────────────────────────────────────────────
 // 1. Nightly at 3am — clears memory leaks, picks up config changes
@@ -38,6 +40,13 @@ async function loadWeather() {
       isNetworkError(e) ? showOfflineOverlay() : location.reload();
     }
   }
+}
+
+async function loadYoLink() {
+  try {
+    yolinkData = await fetchYoLink();
+    yolinkCallbacks.forEach(cb => cb(yolinkData));
+  } catch {}
 }
 
 async function loadAQI() {
@@ -333,14 +342,23 @@ async function mountWidget(widgetCfg) {
       renderAstroInfo(el);
       break;
 
-    case 'yolink': {
-      const d = await fetchYoLink().catch(() => null);
-      renderYoLink(el, d);
-      setInterval(async () => {
-        const nd = await fetchYoLink().catch(() => null);
+    case 'yolink':
+      renderYoLink(el, yolinkData);
+      yolinkCallbacks.push(data => {
         el.innerHTML = ''; el.className = 'widget';
-        renderYoLink(el, nd);
-      }, (widgetCfg.refresh || 300) * 1000);
+        renderYoLink(el, data);
+      });
+      break;
+
+    case 'yolink-door': {
+      const findSensor = data => data?.sensors?.find(
+        s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
+      );
+      renderYoLinkDoor(el, findSensor(yolinkData), widgetCfg);
+      yolinkCallbacks.push(data => {
+        el.innerHTML = ''; el.className = 'widget';
+        renderYoLinkDoor(el, findSensor(data), widgetCfg);
+      });
       break;
     }
 
@@ -438,7 +456,8 @@ async function init() {
     return;
   }
 
-  await Promise.all([loadWeather(), loadAQI()]);
+  await Promise.all([loadWeather(), loadAQI(), loadYoLink()]);
+  setInterval(loadYoLink, 5 * 60 * 1000);
 
   const container = document.getElementById('pages-container');
   for (const pageCfg of pageList) {
