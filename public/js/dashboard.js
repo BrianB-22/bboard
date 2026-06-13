@@ -50,6 +50,7 @@ async function loadYoLink() {
     else yolinkData._fetchError = true;
   }
   yolinkCallbacks.forEach(cb => cb(yolinkData));
+  updateAlertBanner(yolinkData);
 }
 
 async function loadAQI() {
@@ -444,6 +445,42 @@ function startRotation() {
     showPage((currentPage + 1) % pages.length);
     startRotation();
   }, duration);
+}
+
+// ─── YoLink alert banner ─────────────────────────────────────────
+function computeYoLinkAlerts(data) {
+  const alerts = [];
+  if (!data?.sensors) return alerts;
+  for (const s of data.sensors) {
+    if (s.alarm?.highTemp) alerts.push({ level: 'error', msg: `🌡️ ${s.name}: high temp` });
+    if (s.alarm?.lowTemp)  alerts.push({ level: 'warn',  msg: `❄️ ${s.name}: low temp` });
+    if (s.alarm?.lowBattery || (s.battery != null && s.battery <= 1 && !s.alarm?.lowBattery))
+      alerts.push({ level: 'warn', msg: `🔋 ${s.name}: battery low` });
+    if (s.online === false)
+      alerts.push({ level: 'warn', msg: `📡 ${s.name}: offline` });
+    if (s.type === 'THSensor' && s.name.toLowerCase().includes('freez')) {
+      const tooWarm = s.unit === 'C' ? s.temp > -10 : s.temp > 14;
+      if (tooWarm) alerts.push({ level: 'error', msg: `❄️ ${s.name}: ${s.temp}°${s.unit} — too warm!` });
+    }
+  }
+  return alerts;
+}
+
+function updateAlertBanner(data) {
+  let banner = document.getElementById('yl-alert-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'yl-alert-banner';
+    document.body.appendChild(banner);
+  }
+
+  const alerts = computeYoLinkAlerts(data);
+  if (!alerts.length) { banner.hidden = true; return; }
+
+  banner.hidden = false;
+  banner.innerHTML = alerts.map(a =>
+    `<div class="yl-banner-row yl-banner-${a.level}">${a.msg}</div>`
+  ).join('');
 }
 
 // ─── Indicator dots ──────────────────────────────────────────────
