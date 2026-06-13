@@ -498,11 +498,36 @@ function computeYoLinkAlerts(data) {
 }
 
 function updateAlertBanner(data) {
+  let badge = document.getElementById('yl-smoke-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'yl-smoke-badge';
+    document.body.appendChild(badge);
+  }
+
   let banner = document.getElementById('yl-alert-banner');
   if (!banner) {
     banner = document.createElement('div');
     banner.id = 'yl-alert-banner';
     document.body.appendChild(banner);
+  }
+
+  const smoke = data?.sensors?.find(s => s.type === 'COSmokeSensor');
+  if (smoke) {
+    const alarms = [
+      smoke.smokeAlarm    && 'SMOKE',
+      smoke.gasAlarm      && 'CO/GAS',
+      smoke.highTempAlarm && 'HIGH TEMP',
+      smoke.lowBattery    && 'LOW BATTERY',
+    ].filter(Boolean);
+    const offline = smoke.online === false;
+    badge.className = offline ? 'yl-smoke-badge-warn' : alarms.length ? 'yl-smoke-badge-alarm' : 'yl-smoke-badge-ok';
+    badge.innerHTML = offline ? '⚠ SMOKE ALARM: OFFLINE'
+      : alarms.length ? `🔥 SMOKE ALARM: ${alarms.join(' · ')}`
+      : '🛡 SMOKE ALARM: ALL CLEAR';
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
   }
 
   const alerts = computeYoLinkAlerts(data);
