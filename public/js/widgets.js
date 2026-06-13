@@ -1107,12 +1107,25 @@ export function renderCalendarMonth(el, customDates = []) {
   `;
 }
 
+function ylinkStatusBanner(data) {
+  if (!data) return '<div class="yl-status-err">⚠ YoLink unavailable</div>';
+  if (data.error || data._fetchError) return '<div class="yl-status-err">⚠ YoLink error</div>';
+  const age = data.lastSuccessAt ? Date.now() - data.lastSuccessAt : null;
+  if (age != null && age > 15 * 60 * 1000) {
+    const mins = Math.round(age / 60000);
+    return `<div class="yl-status-warn">⚠ Last updated ${mins}m ago</div>`;
+  }
+  return '';
+}
+
 // ─── YoLink Temp Graph ───────────────────────────────────────────
-export function renderYoLinkTemp(el, sensor, history, hours) {
+export function renderYoLinkTemp(el, sensor, history, hours, data) {
   el.classList.add('widget-glass', 'widget-yl-temp');
 
+  const banner = ylinkStatusBanner(data);
+
   if (!sensor) {
-    el.innerHTML = '<div class="ylt-empty">No data</div>';
+    el.innerHTML = banner + '<div class="ylt-empty">No data</div>';
     return;
   }
 
@@ -1155,10 +1168,11 @@ export function renderYoLinkTemp(el, sensor, history, hours) {
     `;
   }
 
-  const rangeLabel = hours <= 24 ? '24h' : hours <= 168 ? '7d' : '30d';
+  const offline = sensor.online === false;
 
   el.innerHTML = `
-    <div class="ylt-name">${sensor.name}</div>
+    ${banner}
+    <div class="ylt-name ${offline ? 'ylt-offline' : ''}">${sensor.name}${offline ? ' · offline' : ''}</div>
     <div class="ylt-main">
       <span class="ylt-temp">${sensor.temp != null ? sensor.temp.toFixed(1) : '--'}°${sensor.unit}</span>
       <span class="ylt-hum">💧 ${sensor.humidity != null ? sensor.humidity.toFixed(0) : '--'}%</span>
@@ -1175,11 +1189,19 @@ export function renderYoLinkTemp(el, sensor, history, hours) {
 }
 
 // ─── YoLink Door (single sensor square) ──────────────────────────
-export function renderYoLinkDoor(el, sensor, cfg = {}) {
+export function renderYoLinkDoor(el, sensor, cfg = {}, data) {
   el.classList.add('widget-glass', 'widget-yl-door');
 
+  const offline = !sensor || sensor.online === false;
+  const stale = data?.lastSuccessAt && (Date.now() - data.lastSuccessAt > 15 * 60 * 1000);
+  const hasError = !data || data.error || data._fetchError;
+
   if (!sensor) {
-    el.innerHTML = `<div class="yld-name">${cfg.device || '—'}</div><div class="yld-state yld-unknown">?</div>`;
+    el.innerHTML = `
+      <div class="yld-name">${cfg.device || '—'}</div>
+      <div class="yld-state yld-unknown">${hasError ? '⚠' : '?'}</div>
+      ${hasError ? '<div class="yld-changed yl-status-err">No connection</div>' : ''}
+    `;
     return;
   }
 
@@ -1201,9 +1223,9 @@ export function renderYoLinkDoor(el, sensor, cfg = {}) {
   }
 
   el.innerHTML = `
-    <div class="yld-name">${sensor.name}</div>
-    <div class="yld-state ${sensor.open ? 'yld-open' : 'yld-closed'}">${sensor.open ? 'OPEN' : 'CLOSED'}</div>
-    <div class="yld-changed">${fmtChanged(sensor.stateChangedAt)}</div>
+    <div class="yld-name ${offline ? 'ylt-offline' : ''}">${sensor.name}</div>
+    <div class="yld-state ${offline ? 'yld-unknown' : sensor.open ? 'yld-open' : 'yld-closed'}">${offline ? 'OFFLINE' : sensor.open ? 'OPEN' : 'CLOSED'}</div>
+    <div class="yld-changed ${stale ? 'yl-status-warn' : ''}">${stale ? '⚠ stale · ' : ''}${fmtChanged(sensor.stateChangedAt)}</div>
   `;
 }
 

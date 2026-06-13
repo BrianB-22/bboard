@@ -45,8 +45,11 @@ async function loadWeather() {
 async function loadYoLink() {
   try {
     yolinkData = await fetchYoLink();
-    yolinkCallbacks.forEach(cb => cb(yolinkData));
-  } catch {}
+  } catch {
+    if (!yolinkData) yolinkData = { sensors: [], error: true };
+    else yolinkData._fetchError = true;
+  }
+  yolinkCallbacks.forEach(cb => cb(yolinkData));
 }
 
 async function loadAQI() {
@@ -352,14 +355,14 @@ async function mountWidget(widgetCfg) {
 
     case 'yolink-temp': {
       let tempHours = widgetCfg.hours || 24;
-      const findTemp = data => data?.sensors?.find(
+      const findTemp = d => d?.sensors?.find(
         s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
       );
 
       async function drawTemp() {
         const hist = await fetchYoLinkHistory(tempHours).catch(() => null);
         el.innerHTML = ''; el.className = 'widget';
-        renderYoLinkTemp(el, findTemp(yolinkData), hist, tempHours);
+        renderYoLinkTemp(el, findTemp(yolinkData), hist, tempHours, yolinkData);
         el.querySelectorAll('.ylt-range').forEach(btn => {
           btn.addEventListener('click', async () => {
             tempHours = parseInt(btn.dataset.h);
@@ -370,18 +373,18 @@ async function mountWidget(widgetCfg) {
 
       await drawTemp();
       yolinkCallbacks.push(async () => drawTemp());
-      setInterval(drawTemp, 15 * 60 * 1000);
+      setInterval(drawTemp, 10 * 60 * 1000);
       break;
     }
 
     case 'yolink-door': {
-      const findSensor = data => data?.sensors?.find(
+      const findSensor = d => d?.sensors?.find(
         s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
       );
-      renderYoLinkDoor(el, findSensor(yolinkData), widgetCfg);
-      yolinkCallbacks.push(data => {
+      renderYoLinkDoor(el, findSensor(yolinkData), widgetCfg, yolinkData);
+      yolinkCallbacks.push(d => {
         el.innerHTML = ''; el.className = 'widget';
-        renderYoLinkDoor(el, findSensor(data), widgetCfg);
+        renderYoLinkDoor(el, findSensor(d), widgetCfg, d);
       });
       break;
     }

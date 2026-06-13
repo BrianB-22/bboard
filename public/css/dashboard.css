@@ -1504,6 +1504,20 @@ html, body {
   text-align: center;
 }
 
+.ylt-offline { opacity: 0.45; }
+
+.yl-status-err {
+  font-size: clamp(0.5rem, 0.78vw, 0.62rem);
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.yl-status-warn {
+  font-size: clamp(0.5rem, 0.78vw, 0.62rem);
+  color: var(--accent-yellow);
+  font-weight: 600;
+}
+
 /* ─── YoLink Door (single square) ───────────────────────────── */
 .widget-yl-door {
   display: flex;

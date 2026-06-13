@@ -323,6 +323,8 @@ function recordHistory(sensors) {
   if (dirty) saveHistory();
 }
 
+let _yolinkPollStatus = { lastSuccessAt: null, error: null };
+
 let _yolinkToken = null;
 let _yolinkTokenExpiry = 0;
 
@@ -418,9 +420,11 @@ app.get('/api/yolink/states', async (req, res) => {
     }));
 
     recordHistory(sensors);
-    res.json({ sensors });
+    _yolinkPollStatus = { lastSuccessAt: Date.now(), error: null };
+    res.json({ sensors, lastSuccessAt: _yolinkPollStatus.lastSuccessAt });
   } catch (e) {
-    res.status(500).json({ error: 'YoLink states failed', detail: e.message });
+    _yolinkPollStatus.error = e.message;
+    res.status(500).json({ error: 'YoLink states failed', detail: e.message, lastSuccessAt: _yolinkPollStatus.lastSuccessAt });
   }
 });
 
@@ -448,12 +452,14 @@ async function pollYoLinkHistory() {
       return { id: d.deviceId, name: d.name, type: 'THSensor', ...normalizeYoLink('THSensor', s.data?.state, s.data?.online, s.data?.reportAt) };
     }));
     recordHistory(results);
+    _yolinkPollStatus = { lastSuccessAt: Date.now(), error: null };
   } catch (e) {
+    _yolinkPollStatus.error = e.message;
     console.warn('YoLink history poll failed:', e.message);
   }
 }
 pollYoLinkHistory();
-setInterval(pollYoLinkHistory, 5 * 60 * 1000);
+setInterval(pollYoLinkHistory, 10 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`bboard running at http://localhost:${PORT}`);
