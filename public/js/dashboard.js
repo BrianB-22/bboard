@@ -524,24 +524,23 @@ function updateAlertBanner(data) {
   }
 
   const smoke = data?.sensors?.find(s => s.type === 'COSmokeSensor');
-  if (smoke) {
-    const alarms = [
-      smoke.smokeAlarm    && 'SMOKE',
-      smoke.gasAlarm      && 'CO/GAS',
-      smoke.highTempAlarm && 'HIGH TEMP',
-      smoke.lowBattery    && 'LOW BATTERY',
-    ].filter(Boolean);
-    const offline = smoke.online === false;
-    badge.className = offline ? 'yl-smoke-badge-warn' : alarms.length ? 'yl-smoke-badge-alarm' : 'yl-smoke-badge-ok';
-    badge.innerHTML = offline
-      ? '<span>⚠ SMOKE ALARM</span><span>OFFLINE</span>'
-      : alarms.length
-        ? `<span>🔥 SMOKE ALARM</span><span>${alarms.join(' · ')}</span>`
-        : '<span>🛡 SMOKE ALARM</span><span>OPERATIONAL</span>';
-    badge.hidden = false;
-  } else {
-    badge.hidden = true;
-  }
+  const alarms = smoke ? [
+    smoke.smokeAlarm    && 'SMOKE',
+    smoke.gasAlarm      && 'CO/GAS',
+    smoke.highTempAlarm && 'HIGH TEMP',
+    smoke.lowBattery    && 'LOW BATTERY',
+  ].filter(Boolean) : [];
+  const smokeOffline = !smoke || smoke.online === false;
+  const smokeError = !smoke || smoke.error;
+  badge.className = (smokeOffline || smokeError) ? 'yl-smoke-badge-warn'
+    : alarms.length ? 'yl-smoke-badge-alarm'
+    : 'yl-smoke-badge-ok';
+  badge.innerHTML = alarms.length
+    ? `<span>🔥 SMOKE ALARM</span><span>${alarms.join(' · ')}</span>`
+    : (smokeOffline || smokeError)
+      ? '<span>⚠ SMOKE ALARM</span><span>UNAVAILABLE</span>'
+      : '<span>🛡 SMOKE ALARM</span><span>OPERATIONAL</span>';
+  badge.hidden = false;
 
   const alerts = computeYoLinkAlerts(data);
   if (!alerts.length) { banner.hidden = true; return; }
