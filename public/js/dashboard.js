@@ -506,6 +506,7 @@ function updateAlertBanner(data) {
     corner = document.createElement('div');
     corner.id = 'yl-top-right';
     document.body.appendChild(corner);
+    corner.hidden = config.pages[currentPage]?.screen !== 'home';
   }
 
   let banner = document.getElementById('yl-alert-banner');
