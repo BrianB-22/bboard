@@ -394,11 +394,13 @@ async function mountWidget(widgetCfg) {
       const findOutlet = d => d?.sensors?.find(
         s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
       );
-      renderYoLinkOutlet(el, findOutlet(yolinkData), yolinkData);
-      yolinkCallbacks.push(d => {
-        el.innerHTML = ''; el.className = 'widget';
-        renderYoLinkOutlet(el, findOutlet(d), d);
-      });
+      const applyOutlet = (d) => {
+        const sensor = findOutlet(d);
+        el.hidden = !!(widgetCfg.hideWhenOff && sensor && !sensor.on);
+        if (!el.hidden) { el.innerHTML = ''; el.className = 'widget'; renderYoLinkOutlet(el, sensor, d); }
+      };
+      applyOutlet(yolinkData);
+      yolinkCallbacks.push(applyOutlet);
       break;
     }
 
