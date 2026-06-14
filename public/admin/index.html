@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bboard admin</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <header>
+    <h1>bboard <span>admin</span></h1>
+    <a href="/" class="back-link">← Dashboard</a>
+  </header>
+
+  <main>
+    <section class="card" id="site-section">
+      <h2>Site Settings</h2>
+      <div class="field-row">
+        <label for="loc-name">Location name</label>
+        <input type="text" id="loc-name" placeholder="Charlotte, NC" oninput="markDirty()">
+      </div>
+      <div class="field-row postal-row">
+        <label for="postal-code">Postal code</label>
+        <div class="postal-inputs">
+          <input type="text" id="postal-code" placeholder="28202" style="width:120px">
+          <input type="text" id="country-code" placeholder="US" style="width:50px" title="2-letter country code">
+          <button type="button" id="lookup-btn" onclick="lookupPostal()">Lookup</button>
+          <span id="lookup-status"></span>
+        </div>
+      </div>
+      <div class="field-row">
+        <label for="show-indicator">Show screen indicator</label>
+        <input type="checkbox" id="show-indicator" onchange="markDirty()">
+      </div>
+    </section>
+
+    <section class="card" id="pages-section">
+      <h2>Pages</h2>
+      <table id="pages-table">
+        <thead>
+          <tr>
+            <th>Screen</th>
+            <th>Background</th>
+            <th>Duration (s)</th>
+            <th></th>
+            <th>Enabled</th>
+            <th>Order</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="pages-tbody"></tbody>
+      </table>
+    </section>
+
+    <section class="card" id="add-section">
+      <h2>Add Page</h2>
+      <p class="add-guidance">
+        To add a new screen, create a screen JSON file in the <code>screens/</code> directory on
+        the server, then refresh this page. There is no built-in screen editor — use a text editor
+        or AI to configure widgets. Click below to generate a ready-to-go starter file.
+      </p>
+      <div class="create-example-row">
+        <button type="button" id="create-example-btn" onclick="createExample()">Create Example Template</button>
+        <span id="create-example-status"></span>
+      </div>
+      <div id="add-form">
+        <hr class="add-divider">
+        <div class="add-row">
+          <div class="field-row">
+            <label for="new-screen">Screen</label>
+            <select id="new-screen"></select>
+          </div>
+          <div class="field-row">
+            <label for="new-bg">Background</label>
+            <select id="new-bg"></select>
+          </div>
+          <div class="field-row">
+            <label for="new-duration">Duration (s)</label>
+            <input type="number" id="new-duration" value="60" min="5" style="width:80px">
+          </div>
+          <div class="field-row">
+            <label for="new-enabled">Enabled</label>
+            <input type="checkbox" id="new-enabled" checked>
+          </div>
+          <button type="button" id="add-btn" onclick="addPage()">+ Add Page</button>
+        </div>
+      </div>
+
+      <p id="no-screens-msg" class="dim" style="display:none">All available screens are already in the rotation — add a screen JSON file and refresh!</p>
+    </section>
+
+    <section class="card" id="deleted-section" style="display:none">
+      <h2>Deleted Screens</h2>
+      <p class="dim">These screen files have been soft-deleted. Restore to make them available again.</p>
+      <ul id="deleted-list"></ul>
+    </section>
+  </main>
+
+  <div id="save-bar">
+    <span id="dirty-msg">Unsaved changes</span>
+    <button type="button" id="save-btn" onclick="save()">Save changes</button>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>

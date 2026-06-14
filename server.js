@@ -1,5 +1,5 @@
 import express from 'express';
-import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, renameSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -7,6 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3030;
 
+app.use(express.json());
 app.use(express.static(join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     // Never cache JS/CSS so layout changes are always immediate
@@ -256,7 +257,8 @@ app.get('/api/ical', async (req, res) => {
 function parseICSDate(str) {
   str = str.replace(/^TZID=[^:]+:/, '');
   if (str.length === 8) {
-    return new Date(`${str.slice(0,4)}-${str.slice(4,6)}-${str.slice(6,8)}`);
+    // Parse as local end-of-day so all-day events stay visible the entire day
+    return new Date(`${str.slice(0,4)}-${str.slice(4,6)}-${str.slice(6,8)}T23:59:59`);
   }
   if (str.includes('T')) {
     const d = str.slice(0,8);
@@ -509,6 +511,84 @@ async function pollYoLinkHistory() {
 }
 pollYoLinkHistory();
 setInterval(pollYoLinkHistory, 10 * 60 * 1000);
+
+// ─── Admin UI ────────────────────────────────────────────────────
+app.get('/admin', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'admin', 'index.html'));
+});
+
+app.get('/api/admin/data', (req, res) => {
+  try {
+    const schedule = readJSON(join(__dirname, 'schedule.json'));
+    const backgrounds = Object.keys(readJSON(join(__dirname, 'backgrounds.json')));
+    const allFiles = readdirSync(join(__dirname, 'screens'));
+    const screens = allFiles.filter(f => f.endsWith('.json')).map(f => f.replace('.json', ''));
+    const deleted = allFiles.filter(f => f.endsWith('.delete')).map(f => f.replace('.delete', ''));
+    res.json({ schedule, backgrounds, screens, deleted });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/config', (req, res) => {
+  try {
+    const { site, pages, deleteScreens = [] } = req.body;
+    const current = readJSON(join(__dirname, 'schedule.json'));
+    writeFileSync(join(__dirname, 'schedule.json'), JSON.stringify({ ...current, site, pages }, null, 2));
+    const remainingScreens = new Set(pages.map(p => p.screen));
+    for (const name of deleteScreens) {
+      if (remainingScreens.has(name)) continue; // still in use by another page
+      const from = join(__dirname, 'screens', `${name}.json`);
+      const to   = join(__dirname, 'screens', `${name}.delete`);
+      if (existsSync(from)) renameSync(from, to);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/screens/create-example', (req, res) => {
+  try {
+    const dest = join(__dirname, 'screens', 'example.json');
+    if (existsSync(dest)) return res.status(409).json({ error: 'example.json already exists — delete or rename it first.' });
+    const template = {
+      id: 'example',
+      name: 'Example Screen',
+      widgets: [
+        {
+          type: 'clock',
+          id: 'ex-clock',
+          style: { top: '5%', left: '25%', width: '50%', height: '12%' }
+        },
+        {
+          type: 'text',
+          id: 'ex-message',
+          html: '<div style="font-size:10vw;font-weight:700;text-align:center;line-height:1.2;color:#fff">Hey Buddy!</div>',
+          style: { top: '25%', left: '5%', width: '90%', height: '50%' }
+        }
+      ]
+    };
+    writeFileSync(dest, JSON.stringify(template, null, 2));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/screens/:name/restore', (req, res) => {
+  try {
+    const { name } = req.params;
+    const from = join(__dirname, 'screens', `${name}.delete`);
+    const to   = join(__dirname, 'screens', `${name}.json`);
+    if (!existsSync(from)) return res.status(404).json({ error: 'Not found' });
+    if (existsSync(to))   return res.status(409).json({ error: 'A screen with that name already exists' });
+    renameSync(from, to);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`bboard running at http://localhost:${PORT}`);

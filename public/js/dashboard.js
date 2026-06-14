@@ -10,6 +10,7 @@ import {
 
 let config = null;
 let pages  = [];
+let pageList = [];
 let currentPage = 0;
 let rotateTimer = null;
 let weatherData = null;
@@ -17,6 +18,7 @@ let aqiData = null;
 let weatherFailCount = 0;
 let yolinkData = null;
 const yolinkCallbacks = [];
+const weatherCallbacks = [];
 let favoriteTeams = [];
 
 // ─── Failsafe reloads ────────────────────────────────────────────
@@ -201,32 +203,29 @@ async function mountWidget(widgetCfg) {
 
     case 'weather-current':
       renderWeatherCurrent(el, weatherData);
-      setInterval(async () => {
-        await loadWeather();
+      weatherCallbacks.push(() => {
         el.innerHTML = '';
         el.className = 'widget';
         renderWeatherCurrent(el, weatherData);
-      }, 15 * 60 * 1000);
+      });
       break;
 
     case 'weather-hourly':
       renderWeatherHourly(el, weatherData, widgetCfg);
-      setInterval(async () => {
-        await loadWeather();
+      weatherCallbacks.push(() => {
         el.innerHTML = '';
         el.className = 'widget';
         renderWeatherHourly(el, weatherData, widgetCfg);
-      }, 15 * 60 * 1000);
+      });
       break;
 
     case 'weather-daily':
       renderWeatherDaily(el, weatherData, widgetCfg);
-      setInterval(async () => {
-        await loadWeather();
+      weatherCallbacks.push(() => {
         el.innerHTML = '';
         el.className = 'widget';
         renderWeatherDaily(el, weatherData, widgetCfg);
-      }, 15 * 60 * 1000);
+      });
       break;
 
     case 'nhl-scores': {
@@ -293,12 +292,11 @@ async function mountWidget(widgetCfg) {
 
     case 'sun-times':
       renderSunTimes(el, weatherData);
-      setInterval(async () => {
-        await loadWeather();
+      weatherCallbacks.push(() => {
         el.innerHTML = '';
         el.className = 'widget';
         renderSunTimes(el, weatherData);
-      }, 15 * 60 * 1000);
+      });
       break;
 
     case 'gauge': {
@@ -471,7 +469,7 @@ function startRotation() {
   if (rotateTimer) clearTimeout(rotateTimer);
   if (pages.length <= 1) return;
 
-  const duration = (config.pages[currentPage]?.duration || 300) * 1000;
+  const duration = (pageList[currentPage]?.duration || 300) * 1000;
   rotateTimer = setTimeout(() => {
     showPage((currentPage + 1) % pages.length);
     startRotation();
@@ -608,7 +606,7 @@ async function init() {
 
   // ?screen=hockey pins a single screen, no rotation
   const pinnedScreen = new URLSearchParams(location.search).get('screen');
-  const pageList = pinnedScreen
+  pageList = pinnedScreen
     ? config.pages.filter(p => p.id === pinnedScreen)
     : config.pages.filter(p => p.enabled !== false);
 
@@ -630,6 +628,11 @@ async function init() {
     container.appendChild(el);
     pages.push(el);
   }
+
+  setInterval(async () => {
+    await loadWeather();
+    for (const cb of weatherCallbacks) cb();
+  }, 15 * 60 * 1000);
 
   buildIndicator(pages.length);
   showPage(0);
