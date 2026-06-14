@@ -1388,3 +1388,298 @@ export function renderYoLink(el, data) {
 
   el.innerHTML = alertHTML + tempHTML + doorHTML + motionHTML;
 }
+
+export function renderServerHardware(el, data) {
+  el.classList.add('widget-glass', 'widget-server-hardware');
+
+  if (!data || data.unavailable) {
+    el.innerHTML = '<div class="sh-unavail">Health data unavailable</div>';
+    return;
+  }
+
+  const fmtTemp = t => t != null ? `${t}°C` : '—';
+  const fmtFan  = f => f != null ? `${f.toLocaleString()} RPM` : '—';
+
+  const tempBar = (t, high = 84, crit = 100) => {
+    if (t == null) return '';
+    const pct = Math.min(100, (t / crit) * 100);
+    const cls = t >= high ? 'sh-bar-warn' : 'sh-bar-ok';
+    return `<div class="sh-tbar"><div class="sh-tfill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>`;
+  };
+
+  const staleNote = data.ageSecs > 300 ? ' <span class="sh-stale">stale</span>' : '';
+
+  el.innerHTML = `
+    <div class="shw-wrap">
+      <div class="shw-title">Hardware${staleNote}</div>
+      <div class="sh-trow"><span class="sh-lbl">CPU</span><span class="sh-tval">${fmtTemp(data.cpuTemp)}</span>${tempBar(data.cpuTemp, 84, 100)}</div>
+      <div class="sh-trow"><span class="sh-lbl">PCH</span><span class="sh-tval">${fmtTemp(data.pchTemp)}</span>${tempBar(data.pchTemp, 70, 90)}</div>
+      <div class="sh-trow"><span class="sh-lbl">Ambient</span><span class="sh-tval">${fmtTemp(data.ambientTemp)}</span>${tempBar(data.ambientTemp, 50, 70)}</div>
+      <div class="sh-divider"></div>
+      <div class="sh-fanrow"><span class="sh-lbl">Proc fan</span><span class="sh-fan">${fmtFan(data.fans?.processor)}</span></div>
+      <div class="sh-fanrow"><span class="sh-lbl">MB fan</span><span class="sh-fan">${fmtFan(data.fans?.motherboard)}</span></div>
+    </div>
+  `;
+}
+
+export function renderServerDrives(el, data) {
+  el.classList.add('widget-glass', 'widget-server-drives');
+
+  if (!data || data.unavailable) {
+    el.innerHTML = '<div class="sh-unavail">Health data unavailable</div>';
+    return;
+  }
+
+  const staleNote = data.ageSecs > 300 ? ' <span class="sh-stale">stale</span>' : '';
+  const drives = data.drives || [];
+
+  const tempBar = (t, high = 55, crit = 70) => {
+    if (t == null) return '';
+    const pct = Math.min(100, (t / crit) * 100);
+    const cls = t >= high ? 'sh-bar-warn' : 'sh-bar-ok';
+    return `<div class="sdr-tbar"><div class="sh-tfill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>`;
+  };
+
+  const rows = drives.map(d => `<div class="sdr-row">
+    <span class="sdr-dev">${d.dev}</span>
+    ${d.model ? '<span class="sdr-badge">SSD</span>' : ''}
+    <span class="sdr-temp">${d.temp != null ? d.temp + '°C' : '—'}</span>
+    ${tempBar(d.temp)}
+  </div>`).join('');
+
+  el.innerHTML = `
+    <div class="sdr-wrap">
+      <div class="sdr-title">Drives${staleNote}</div>
+      ${rows || '<div class="sh-unavail">No drives</div>'}
+    </div>
+  `;
+}
+
+export function renderServerUPS(el, data) {
+  el.classList.add('widget-glass', 'widget-server-ups');
+
+  if (!data || data.unavailable) {
+    el.innerHTML = '<div class="sh-unavail">Health data unavailable</div>';
+    return;
+  }
+
+  const ups = data.ups || {};
+  const onBattery = ups.supply && !ups.supply.includes('Utility');
+  const upsBadgeCls = onBattery ? (ups.batteryPct < 30 ? 'sh-ups-crit' : 'sh-ups-warn') : 'sh-ups-ok';
+  const upsBadgeLabel = onBattery ? 'ON BATTERY' : (ups.state || '—').toUpperCase();
+  const staleNote = data.ageSecs > 300 ? ' <span class="sh-stale">stale</span>' : '';
+
+  const fmtLastEvent = str => {
+    if (!str) return '—';
+    const m = str.match(/^(\w+) at ([\d/]+ [\d:]+)(.*)/);
+    if (!m) return str;
+    const d = new Date(m[2].replace(/\//g, '-'));
+    const label = isNaN(d) ? m[2] : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const tail = m[3].trim();
+    return `${m[1]} ${label}${tail ? ' · ' + tail : ''}`;
+  };
+
+  el.innerHTML = `
+    <div class="su-wrap">
+      <div class="su-title">UPS <span class="sh-ups-badge ${upsBadgeCls}">${upsBadgeLabel}</span>${staleNote}</div>
+      <div class="sh-ups-batt">
+        <div class="sh-bbar"><div class="sh-bfill ${ups.batteryPct < 30 ? 'sh-bar-warn' : 'sh-bar-ok'}" style="width:${ups.batteryPct ?? 0}%"></div></div>
+        <span class="sh-bpct">${ups.batteryPct != null ? ups.batteryPct + '%' : '—'}</span>
+      </div>
+      <div class="sh-ups-rows">
+        <span class="sh-lbl">Source</span><span>${ups.supply || '—'}</span>
+        <span class="sh-lbl">Utility</span><span>${ups.utilityV != null ? ups.utilityV + ' V' : '—'}</span>
+        <span class="sh-lbl">Runtime</span><span>${ups.runtime || '—'}</span>
+        <span class="sh-lbl">Load</span><span>${ups.loadWatts != null ? `${ups.loadWatts}W (${ups.loadPct}%)` : '—'}</span>
+        <span class="sh-lbl">Last event</span><span class="sh-lastevent">${fmtLastEvent(ups.lastEvent)}</span>
+      </div>
+    </div>
+  `;
+}
+
+export function renderServerLoad(el, data) {
+  el.classList.add('widget-glass', 'widget-server-load');
+
+  if (!data || data.unavailable) {
+    el.innerHTML = '<div class="sh-unavail">Health data unavailable</div>';
+    return;
+  }
+
+  const staleNote = data.ageSecs > 300 ? ' <span class="sh-stale">stale</span>' : '';
+  const load = data.load || {};
+  const cores = data.cpuCount || 1;
+
+  const loadBar = (val, label) => {
+    if (val == null) return `<div class="sl-bar-row"><span class="sl-bar-lbl">${label}</span><div class="sl-bar-track"><div class="sl-bar-fill sl-bar-ok" style="width:0%"></div></div><span class="sl-bar-num">—</span></div>`;
+    const pct = Math.min(100, (val / cores) * 100);
+    const cls = pct > 80 ? 'sl-bar-crit' : pct > 50 ? 'sl-bar-warn' : 'sl-bar-ok';
+    return `<div class="sl-bar-row">
+      <span class="sl-bar-lbl">${label}</span>
+      <div class="sl-bar-track"><div class="sl-bar-fill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>
+      <span class="sl-bar-num">${val} <span class="sl-bar-pct">(${Math.round(pct)}%)</span></span>
+    </div>`;
+  };
+
+  const failedCls = data.systemdFailed > 0 ? 'sl-failed-warn' : 'sl-meta-ok';
+  const failedLabel = data.systemdFailed != null
+    ? (data.systemdFailed === 0 ? 'all services ok' : `${data.systemdFailed} failed`)
+    : '—';
+  const sshLabel = data.sshSessions != null ? `${data.sshSessions} SSH` : '—';
+
+  el.innerHTML = `
+    <div class="sl-wrap">
+      <div class="sl-title">Load Avg${staleNote}</div>
+      <div class="sl-bars">
+        ${loadBar(load.one,     '1m')}
+        ${loadBar(load.five,    '5m')}
+        ${loadBar(load.fifteen, '15m')}
+      </div>
+      <div class="sl-meta">
+        <span class="${failedCls}">${failedLabel}</span>
+        <span class="sl-meta-sep">·</span>
+        <span class="sl-meta-ok">${sshLabel}</span>
+      </div>
+    </div>
+  `;
+}
+
+export function renderServerDocker(el, data) {
+  el.classList.add('widget-glass', 'widget-server-docker');
+
+  if (!data) {
+    el.innerHTML = '<div class="ss-error">Docker data unavailable</div>';
+    return;
+  }
+
+  const containersHtml = (data.containers || []).map(c => {
+    const running = c.state === 'running';
+    const restarting = c.state === 'restarting';
+    const stateClass = running ? 'ss-state-up' : restarting ? 'ss-state-restart' : 'ss-state-down';
+    const stateLabel = running ? 'running' : restarting ? 'restarting' : c.state || 'stopped';
+    const name = c.name.replace(/^\//, '');
+    return `<div class="ss-container ${running ? '' : 'ss-container-down'}">
+      <div class="ss-container-name">${name}</div>
+      <div class="ss-container-image">${c.image}</div>
+      <div class="ss-container-footer">
+        <span class="ss-state ${stateClass}">${stateLabel}</span>
+        <span class="ss-container-since">${c.status}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="sd-wrap">
+      <div class="sd-title">Docker Health</div>
+      <div class="ss-containers">${containersHtml}</div>
+    </div>
+  `;
+}
+
+export function renderServerStorage(el, data) {
+  el.classList.add('widget-glass', 'widget-server-storage');
+
+  if (!data?.pairs?.length) {
+    el.innerHTML = '<div class="sto-unavail">Storage data unavailable</div>';
+    return;
+  }
+
+  const fmtSz = b => {
+    if (b == null) return '?';
+    const u = ['B','K','M','G','T'];
+    let v = b, i = 0;
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    return (i >= 3 ? v.toFixed(1) : Math.round(v)) + u[i];
+  };
+
+  const ageInfo = iso => {
+    if (!iso) return { label: 'never', cls: 'sto-age-crit' };
+    const days = (Date.now() - new Date(iso)) / 86400000;
+    if (days < 1)  return { label: 'today',           cls: 'sto-age-ok' };
+    if (days < 30) return { label: `${Math.floor(days)}d`, cls: 'sto-age-ok' };
+    if (days < 60) return { label: `${Math.floor(days)}d`, cls: 'sto-age-warn' };
+    return           { label: `${Math.floor(days)}d`, cls: 'sto-age-crit' };
+  };
+
+  const rows = data.pairs.map(pair => {
+    const d = pair.data, b = pair.backup;
+    const pct = d ? Math.round((d.used / d.total) * 100) : 0;
+    const barCls = pct > 90 ? 'sto-fill-crit' : pct > 75 ? 'sto-fill-warn' : 'sto-fill-ok';
+    const age = ageInfo(pair.lastBackup);
+    return `<div class="sto-row">
+      <div class="sto-pair-lbl">${pair.dataMnt} ↔ ${pair.backupMnt}</div>
+      <div class="sto-bar"><div class="sto-fill ${barCls}" style="width:${pct}%"></div></div>
+      <div class="sto-nums">${d ? fmtSz(d.used) + ' / ' + fmtSz(d.total) : '—'}</div>
+      <div class="sto-bkp">${b ? fmtSz(b.used) : '—'}</div>
+      <div class="sto-age ${age.cls}">${age.label}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="sto-title">Storage</div>
+    <div class="sto-header">
+      <div class="sto-h-pair">Drive Pair</div>
+      <div class="sto-h-bar"></div>
+      <div class="sto-h-used">Used / Total</div>
+      <div class="sto-h-bkp">Backup Size</div>
+      <div class="sto-h-age">Last Backup</div>
+    </div>
+    <div class="sto-rows">${rows}</div>
+  `;
+}
+
+export function renderServerStats(el, data, cfg = {}) {
+  el.classList.add('widget-glass', 'widget-server-stats');
+
+  if (!data) {
+    el.innerHTML = '<div class="ss-error">Server stats unavailable</div>';
+    return;
+  }
+
+  const fmtBytes = b => {
+    if (b == null) return '?';
+    return (b / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+  };
+
+  const fmtUptime = s => {
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
+
+  const cpuPct  = data.cpu  != null ? `${data.cpu}%` : '?';
+  const ramStr  = data.ram  ? `${fmtBytes(data.ram.used)} / ${fmtBytes(data.ram.total)}` : '?';
+  const swapStr = data.swap ? `${fmtBytes(data.swap.used)} / ${fmtBytes(data.swap.total)}` : '?';
+  const diskStr = data.disk ? `${fmtBytes(data.disk.used)} / ${fmtBytes(data.disk.total)}` : '?';
+  const upStr   = data.uptime != null ? fmtUptime(data.uptime) : '?';
+
+  const cpuClass = data.cpu > 80 ? 'ss-val-warn' : data.cpu > 95 ? 'ss-val-crit' : '';
+
+  el.innerHTML = `
+    <div class="ss-sysbar">
+      ${cfg.label ? `<div class="ss-name">${cfg.label}</div>` : ''}
+      <div class="ss-stat">
+        <span class="ss-stat-label">CPU</span>
+        <span class="ss-stat-val ${cpuClass}">${cpuPct}</span>
+      </div>
+      <div class="ss-stat">
+        <span class="ss-stat-label">RAM</span>
+        <span class="ss-stat-val">${ramStr}</span>
+      </div>
+      <div class="ss-stat">
+        <span class="ss-stat-label">Swap</span>
+        <span class="ss-stat-val">${swapStr}</span>
+      </div>
+      <div class="ss-stat">
+        <span class="ss-stat-label">Root</span>
+        <span class="ss-stat-val">${diskStr}</span>
+      </div>
+      <div class="ss-stat">
+        <span class="ss-stat-label">Uptime</span>
+        <span class="ss-stat-val">${upStr}</span>
+      </div>
+    </div>
+  `;
+}

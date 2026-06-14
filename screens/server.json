@@ -1,0 +1,35 @@
+{
+  "id": "server",
+  "name": "Server",
+  "widgets": [
+    {
+      "type": "server-stats",
+      "label": "Home Server",
+      "style": { "top": "2%", "left": "2%", "width": "96%", "height": "10%" }
+    },
+    {
+      "type": "server-hardware",
+      "style": { "top": "14%", "left": "2%", "width": "24%", "height": "40%" }
+    },
+    {
+      "type": "server-drives",
+      "style": { "top": "14%", "left": "28%", "width": "16%", "height": "40%" }
+    },
+    {
+      "type": "server-ups",
+      "style": { "top": "14%", "left": "46%", "width": "26%", "height": "40%" }
+    },
+    {
+      "type": "server-load",
+      "style": { "top": "14%", "left": "74%", "width": "24%", "height": "40%" }
+    },
+    {
+      "type": "server-docker",
+      "style": { "top": "56%", "left": "2%", "width": "44%", "height": "42%" }
+    },
+    {
+      "type": "server-storage",
+      "style": { "top": "56%", "left": "48%", "width": "50%", "height": "42%" }
+    }
+  ]
+}

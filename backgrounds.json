@@ -28,5 +28,8 @@
   },
   "hockey-night": {
     "type": "hockey-arena"
+  },
+  "neon-tech": {
+    "type": "neon-tech"
   }
 }

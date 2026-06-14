@@ -2,6 +2,8 @@ import express from 'express';
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync, renameSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import os from 'os';
+import { exec } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -546,6 +548,166 @@ if (YOLINK_ENABLED) {
 } else {
   console.log('YoLink disabled — set YOLINK_UAID and YOLINK_SECRET in .env to enable');
 }
+
+// ─── Server Stats ────────────────────────────────────────────────
+function cpuPercent() {
+  return new Promise(resolve => {
+    const s = os.cpus().map(c => c.times);
+    setTimeout(() => {
+      const e = os.cpus().map(c => c.times);
+      let idle = 0, total = 0;
+      for (let i = 0; i < s.length; i++) {
+        for (const k of Object.keys(s[i])) {
+          const d = e[i][k] - s[i][k];
+          total += d;
+          if (k === 'idle') idle += d;
+        }
+      }
+      resolve(total ? Math.round(100 * (1 - idle / total)) : 0);
+    }, 300);
+  });
+}
+
+function diskUsage() {
+  return new Promise(resolve => {
+    exec('df -Pk /', (err, stdout) => {
+      if (err) return resolve(null);
+      const parts = stdout.trim().split('\n')[1].trim().split(/\s+/);
+      resolve({ used: parseInt(parts[2]) * 1024, total: parseInt(parts[1]) * 1024 });
+    });
+  });
+}
+
+function swapUsage() {
+  try {
+    const kv = {};
+    for (const line of readFileSync('/proc/meminfo', 'utf8').split('\n')) {
+      const [k, v] = line.split(':');
+      if (k && v) kv[k.trim()] = parseInt(v.trim());
+    }
+    return { total: (kv.SwapTotal || 0) * 1024, used: ((kv.SwapTotal || 0) - (kv.SwapFree || 0)) * 1024 };
+  } catch { return null; }
+}
+
+function dockerContainers() {
+  return new Promise(resolve => {
+    exec('docker ps -a --format "{{json .}}"', (err, stdout) => {
+      if (err) return resolve(null);
+      const containers = stdout.trim().split('\n')
+        .filter(Boolean)
+        .map(line => { try { return JSON.parse(line); } catch { return null; } })
+        .filter(Boolean)
+        .map(c => ({ name: c.Names, image: c.Image, state: c.State, status: c.Status }));
+      resolve(containers);
+    });
+  });
+}
+
+app.get('/api/server/stats', async (req, res) => {
+  try {
+    const [cpu, disk, containers] = await Promise.all([cpuPercent(), diskUsage(), dockerContainers()]);
+    res.json({
+      cpu,
+      ram:  { used: os.totalmem() - os.freemem(), total: os.totalmem() },
+      swap: swapUsage(),
+      disk,
+      uptime: os.uptime(),
+      containers,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Server Health ───────────────────────────────────────────────
+const HEALTH_FILE = process.env.HEALTH_FILE || '/home/brian/bboard-health.txt';
+
+function parseHealthFile(text) {
+  const kv = {};
+  for (const line of text.trim().split('\n')) {
+    const eq = line.indexOf('=');
+    if (eq > 0) kv[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+
+  const num = k => kv[k] != null ? parseFloat(kv[k]) : null;
+  const int = k => kv[k] != null ? parseInt(kv[k])   : null;
+
+  // Collect all drive_XXX_* keys into an array
+  const driveMap = {};
+  for (const [k, v] of Object.entries(kv)) {
+    const m = k.match(/^drive_(\w+)_(model|temp)$/);
+    if (m) {
+      driveMap[m[1]] ??= { dev: m[1] };
+      driveMap[m[1]][m[2]] = m[2] === 'temp' ? parseInt(v) : v;
+    }
+  }
+
+  return {
+    timestamp:      kv.timestamp   || null,
+    load:           { one: num('load_1'), five: num('load_5'), fifteen: num('load_15') },
+    cpuTemp:        num('cpu_temp'),
+    pchTemp:        num('pch_temp'),
+    ambientTemp:    num('ambient_temp'),
+    fans:           { processor: int('fan_proc'), motherboard: int('fan_mb') },
+    drives:         Object.values(driveMap),
+    swap:           { usedKb: int('swap_used_kb'), totalKb: int('swap_total_kb') },
+    sshSessions:    int('ssh_sessions'),
+    systemdFailed:  int('systemd_failed'),
+    ups: {
+      state:      kv.ups_state      || null,
+      supply:     kv.ups_supply     || null,
+      utilityV:   int('ups_utility_v'),
+      batteryPct: int('ups_battery'),
+      runtime:    kv.ups_runtime_min ? `${kv.ups_runtime_min} min.` : null,
+      loadWatts:  int('ups_load_watts'),
+      loadPct:    int('ups_load_pct'),
+      lastEvent:  kv.ups_last_event  || null,
+    },
+  };
+}
+
+app.get('/api/server/health', (req, res) => {
+  try {
+    if (!existsSync(HEALTH_FILE)) return res.json({ unavailable: true });
+    const text = readFileSync(HEALTH_FILE, 'utf8');
+    const ageSecs = Math.round((Date.now() - statSync(HEALTH_FILE).mtimeMs) / 1000);
+    res.json({ ...parseHealthFile(text), ageSecs, cpuCount: os.cpus().length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Server Storage ───────────────────────────────────────────────
+function getStoragePairs() {
+  const nums = ['', '1', '2', '3', '4'];
+  const mnts = nums.flatMap(n => [`/data${n}`, `/backup${n}`]).join(' ');
+  return new Promise(resolve => {
+    exec(`df -Pk ${mnts} 2>/dev/null`, (_err, stdout) => {
+      const byMnt = {};
+      stdout.trim().split('\n').slice(1).forEach(line => {
+        const p = line.trim().split(/\s+/);
+        if (p.length >= 6) byMnt[p[5]] = { total: parseInt(p[1]) * 1024, used: parseInt(p[2]) * 1024 };
+      });
+      const pairs = nums.map(n => {
+        const d = `/data${n}`, b = `/backup${n}`;
+        if (!byMnt[d] && !byMnt[b]) return null;
+        const tsFile = `${b}/data${n}/backup-timestamp`;
+        let lastBackup = null;
+        try { if (existsSync(tsFile)) lastBackup = statSync(tsFile).mtime.toISOString(); } catch {}
+        return { dataMnt: d, backupMnt: b, data: byMnt[d] || null, backup: byMnt[b] || null, lastBackup };
+      }).filter(Boolean);
+      resolve(pairs);
+    });
+  });
+}
+
+app.get('/api/server/storage', async (req, res) => {
+  try {
+    res.json({ pairs: await getStoragePairs() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ─── Admin UI ────────────────────────────────────────────────────
 app.get('/admin', (req, res) => {

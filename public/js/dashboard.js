@@ -6,6 +6,8 @@ import {
   renderText, renderScheduledText, renderCountdown, renderSunTimes,
   renderGauge, renderJSON, renderCalendar, renderWeekCalendar,
   renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp, renderYoLinkOutlet, renderYoLinkSmoke,
+  renderServerStats, renderServerStorage,
+  renderServerHardware, renderServerDrives, renderServerUPS, renderServerLoad, renderServerDocker,
 } from './widgets.js';
 
 let config = null;
@@ -100,6 +102,30 @@ function buildBackground(pageEl, bg) {
     const div = document.createElement('div');
     div.className = 'page-bg-hockey';
     pageEl.appendChild(div);
+    return;
+  }
+
+  if (bg.type === 'neon-tech') {
+    const wrap = document.createElement('div');
+    wrap.className = 'page-bg-neon-tech';
+    const grid = document.createElement('div');
+    grid.className = 'neon-grid';
+    wrap.appendChild(grid);
+    [
+      { color: 'rgba(0,255,230,0.28)',  anim: 'neon1', style: 'left:-5%;top:5%;width:65%;height:60%;' },
+      { color: 'rgba(220,0,200,0.22)',  anim: 'neon2', style: 'right:-5%;top:25%;width:60%;height:55%;' },
+      { color: 'rgba(0,90,255,0.26)',   anim: 'neon3', style: 'left:15%;bottom:-10%;width:55%;height:50%;' },
+      { color: 'rgba(160,0,255,0.18)',  anim: 'neon4', style: 'right:10%;top:-8%;width:50%;height:45%;' },
+    ].forEach(b => {
+      const blob = document.createElement('div');
+      blob.className = `neon-blob neon-${b.anim}`;
+      blob.style.cssText = `background:${b.color};${b.style}`;
+      wrap.appendChild(blob);
+    });
+    const scan = document.createElement('div');
+    scan.className = 'neon-scanlines';
+    wrap.appendChild(scan);
+    pageEl.appendChild(wrap);
     return;
   }
 
@@ -429,6 +455,83 @@ async function mountWidget(widgetCfg) {
         refresh();
         setInterval(refresh, 86400000);
       }, msToMidnight);
+      break;
+    }
+
+    case 'server-stats': {
+      async function loadServerStats() {
+        const d = await fetch('/api/server/stats').then(r => r.json()).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderServerStats(el, d, widgetCfg);
+      }
+      await loadServerStats();
+      setInterval(loadServerStats, 30 * 1000);
+      break;
+    }
+
+    case 'server-hardware': {
+      async function loadServerHardware() {
+        const d = await fetch('/api/server/health').then(r => r.json()).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderServerHardware(el, d);
+      }
+      await loadServerHardware();
+      setInterval(loadServerHardware, 5 * 60 * 1000);
+      break;
+    }
+
+    case 'server-drives': {
+      async function loadServerDrives() {
+        const d = await fetch('/api/server/health').then(r => r.json()).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderServerDrives(el, d);
+      }
+      await loadServerDrives();
+      setInterval(loadServerDrives, 5 * 60 * 1000);
+      break;
+    }
+
+    case 'server-ups': {
+      async function loadServerUPS() {
+        const d = await fetch('/api/server/health').then(r => r.json()).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderServerUPS(el, d);
+      }
+      await loadServerUPS();
+      setInterval(loadServerUPS, 5 * 60 * 1000);
+      break;
+    }
+
+    case 'server-load': {
+      async function loadServerLoad() {
+        const d = await fetch('/api/server/health').then(r => r.json()).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderServerLoad(el, d);
+      }
+      await loadServerLoad();
+      setInterval(loadServerLoad, 5 * 60 * 1000);
+      break;
+    }
+
+    case 'server-docker': {
+      async function loadServerDocker() {
+        const d = await fetch('/api/server/stats').then(r => r.json()).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderServerDocker(el, d);
+      }
+      await loadServerDocker();
+      setInterval(loadServerDocker, 30 * 1000);
+      break;
+    }
+
+    case 'server-storage': {
+      async function loadServerStorage() {
+        const d = await fetch('/api/server/storage').then(r => r.json()).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderServerStorage(el, d);
+      }
+      await loadServerStorage();
+      setInterval(loadServerStorage, 120 * 1000);
       break;
     }
   }
