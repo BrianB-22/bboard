@@ -190,17 +190,6 @@ The health widgets show a **stale** badge when the health file hasn't been updat
 
 UPS support requires CyberPower `pwrstat` at `/sbin/pwrstat`. Drive temperatures use `hddtemp` for SSDs and `smartctl` (smartmontools) for spinning drives.
 
-## Deployment
-
-Edit `deploy.sh` with your server details, then:
-
-```bash
-./deploy.sh                                          # rsync files to server
-ssh user@host "sudo systemctl restart bboard"        # only needed after server.js changes
-```
-
-Config and frontend changes take effect automatically across all connected browsers within 5 minutes (the server tracks config file modification times and triggers a page reload when anything changes). See `SERVERSETUP.md` for full server setup instructions.
-
 ## APIs used
 
 All free, no keys required (except YoLink for sensor integration):
