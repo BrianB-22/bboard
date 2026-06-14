@@ -342,7 +342,10 @@ function recordHistory(sensors) {
   if (dirty) saveHistory();
 }
 
+const YOLINK_ENABLED = !!(process.env.YOLINK_UAID && process.env.YOLINK_SECRET);
+
 let _yolinkPollStatus = { lastSuccessAt: null, error: null };
+let _yolinkSensorCache = {}; // keyed by deviceId → last known-good sensor object
 
 let _yolinkToken = null;
 let _yolinkTokenExpiry = 0;
@@ -369,7 +372,7 @@ async function yolinkCall(method, extra = {}) {
     const r = await fetch('https://api.yosmart.com/open/yolink/v2/api', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ method, ...extra }),
+      body: JSON.stringify({ method, time: Date.now(), ...extra }),
       signal: abort.signal,
     });
     return r.json();
@@ -393,9 +396,12 @@ let _yolinkDeviceExpiry = 0;
 async function getYoLinkDevices() {
   if (_yolinkDevices && Date.now() < _yolinkDeviceExpiry) return _yolinkDevices;
   const data = await yolinkCall('Home.getDeviceList');
-  _yolinkDevices = data.data?.devices ?? [];
-  _yolinkDeviceExpiry = Date.now() + 10 * 60 * 1000; // cache 10 min
-  return _yolinkDevices;
+  const devices = data.code === '000000' ? (data.data?.devices ?? []) : [];
+  if (devices.length) {
+    _yolinkDevices = devices;
+    _yolinkDeviceExpiry = Date.now() + 10 * 60 * 1000;
+  }
+  return _yolinkDevices ?? [];
 }
 
 function normalizeYoLink(type, state, online, reportAt) {
@@ -429,7 +435,8 @@ function normalizeYoLink(type, state, online, reportAt) {
     highTempAlarm: state?.state?.highTempAlarm ?? false,
     lowBattery:    state?.state?.sLowBattery   ?? false,
     battery: state?.battery,
-    online, reportAt,
+    online: state?.online ?? online, // spec: COSmokeSensor puts online inside data.state, not data
+    reportAt,
   };
   if (type === 'MultiOutlet') {
     const channels = Array.isArray(state) ? state : [];
@@ -449,28 +456,50 @@ function normalizeYoLink(type, state, online, reportAt) {
 }
 
 app.get('/api/yolink/states', async (req, res) => {
+  if (!YOLINK_ENABLED) return res.json({ sensors: [], disabled: true });
   try {
     const devices = await getYoLinkDevices();
     const relevant = devices.filter(d => YOLINK_STATE_METHODS[d.type]);
 
     const sensors = await Promise.all(relevant.map(async d => {
+      const fallback = (offline = false) => {
+        if (_yolinkSensorCache[d.deviceId]) {
+          return { ..._yolinkSensorCache[d.deviceId], ...(offline ? { online: false } : {}), stale: true };
+        }
+        if (d.type === 'THSensor') {
+          const hist = tempHistory.sensors[d.deviceId];
+          const last = hist?.readings?.at(-1);
+          if (last) return { id: d.deviceId, name: d.name, type: d.type, unit: hist.unit, temp: last.v, humidity: last.h, reportAt: last.t, stale: true };
+        }
+        return { id: d.deviceId, name: d.name, type: d.type, online: offline ? false : undefined, stale: true };
+      };
+
       try {
         const s = await yolinkCall(YOLINK_STATE_METHODS[d.type], {
           targetDevice: d.deviceId,
           token: d.token,
         });
-        return {
+        if (s.code !== '000000' || s.data == null) return fallback();
+
+        const sensor = {
           id: d.deviceId,
           name: d.name,
           type: d.type,
           ...normalizeYoLink(d.type, s.data?.state, s.data?.online, s.data?.reportAt),
         };
+        // Only cache if data is complete (THSensor must have temp)
+        const isComplete = d.type !== 'THSensor' || sensor.temp != null;
+        if (isComplete) {
+          _yolinkSensorCache[d.deviceId] = sensor;
+          return sensor;
+        }
+        return fallback();
       } catch {
-        return { id: d.deviceId, name: d.name, type: d.type, online: false, error: true };
+        return fallback(true);
       }
     }));
 
-    recordHistory(sensors);
+    recordHistory(sensors.filter(s => !s.stale));
     _yolinkPollStatus = { lastSuccessAt: Date.now(), error: null };
     res.json({ sensors, lastSuccessAt: _yolinkPollStatus.lastSuccessAt });
   } catch (e) {
@@ -480,6 +509,7 @@ app.get('/api/yolink/states', async (req, res) => {
 });
 
 app.get('/api/yolink/history', (req, res) => {
+  if (!YOLINK_ENABLED) return res.json({});
   const hours = Math.min(parseInt(req.query.hours) || 24, 30 * 24);
   const since = Date.now() - hours * 60 * 60 * 1000;
   const result = {};
@@ -500,17 +530,22 @@ async function pollYoLinkHistory() {
     const thSensors = devices.filter(d => d.type === 'THSensor');
     const results = await Promise.all(thSensors.map(async d => {
       const s = await yolinkCall('THSensor.getState', { targetDevice: d.deviceId, token: d.token });
+      if (s.code !== '000000' || s.data == null) return null;
       return { id: d.deviceId, name: d.name, type: 'THSensor', ...normalizeYoLink('THSensor', s.data?.state, s.data?.online, s.data?.reportAt) };
     }));
-    recordHistory(results);
+    recordHistory(results.filter(Boolean));
     _yolinkPollStatus = { lastSuccessAt: Date.now(), error: null };
   } catch (e) {
     _yolinkPollStatus.error = e.message;
     console.warn('YoLink history poll failed:', e.message);
   }
 }
-pollYoLinkHistory();
-setInterval(pollYoLinkHistory, 10 * 60 * 1000);
+if (YOLINK_ENABLED) {
+  pollYoLinkHistory();
+  setInterval(pollYoLinkHistory, 10 * 60 * 1000);
+} else {
+  console.log('YoLink disabled — set YOLINK_UAID and YOLINK_SECRET in .env to enable');
+}
 
 // ─── Admin UI ────────────────────────────────────────────────────
 app.get('/admin', (req, res) => {

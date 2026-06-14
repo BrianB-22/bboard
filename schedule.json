@@ -16,8 +16,8 @@
       "enabled": true
     },
     {
-      "screen": "hockey",
-      "background": "hockey-night",
+      "screen": "home",
+      "background": "dark-blue",
       "duration": 60,
       "enabled": true
     },
@@ -28,8 +28,8 @@
       "enabled": true
     },
     {
-      "screen": "home",
-      "background": "dark-blue",
+      "screen": "hockey",
+      "background": "hockey-night",
       "duration": 60,
       "enabled": true
     }

@@ -545,6 +545,30 @@ function updateAlertBanner(data) {
       : '<span>🛡 SMOKE ALARM</span><span>OPERATIONAL</span>';
   badge.hidden = false;
 
+  // Power failure alarm badge
+  let powerBadge = document.getElementById('yl-power-badge');
+  if (!powerBadge) {
+    powerBadge = document.createElement('div');
+    powerBadge.id = 'yl-power-badge';
+    corner.appendChild(powerBadge);
+  }
+  const power = data?.sensors?.find(s => s.type === 'PowerFailureAlarm');
+  if (!power) {
+    powerBadge.hidden = true;
+  } else {
+    const powerAlarm   = power.alarm || power.powerSupply === false;
+    const powerOffline = power.online === false;
+    powerBadge.className = powerAlarm   ? 'yl-smoke-badge-alarm'
+                         : powerOffline ? 'yl-smoke-badge-warn'
+                         :                'yl-smoke-badge-ok';
+    powerBadge.innerHTML = powerAlarm
+      ? '<span>⚡ POWER ALARM</span><span>POWER FAILURE</span>'
+      : powerOffline
+      ? '<span>⚡ POWER MONITOR</span><span>UNAVAILABLE</span>'
+      : '<span>⚡ POWER MONITOR</span><span>OK</span>';
+    powerBadge.hidden = false;
+  }
+
   const alerts = computeYoLinkAlerts(data);
   if (!alerts.length) { banner.hidden = true; return; }
 

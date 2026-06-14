@@ -1749,6 +1749,26 @@ html, body {
 #yl-smoke-badge[hidden] { display: none; }
 #yl-smoke-badge span:first-child { opacity: 0.75; font-weight: 500; }
 #yl-smoke-badge span:last-child  { font-size: clamp(0.6rem, 0.95vw, 0.78rem); }
+
+#yl-power-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: clamp(0.55rem, 0.85vw, 0.7rem);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.45);
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+#yl-power-badge[hidden] { display: none; }
+#yl-power-badge span:first-child { opacity: 0.75; font-weight: 500; }
+#yl-power-badge span:last-child  { font-size: clamp(0.6rem, 0.95vw, 0.78rem); }
 .yl-smoke-badge-ok    { background: rgba(0,80,40,0.75);   color: #69f0ae; border: 1px solid rgba(105,240,174,0.3); }
 .yl-smoke-badge-alarm { background: rgba(200,30,30,0.82); color: #fff;    border: 1px solid rgba(255,80,80,0.5); }
 .yl-smoke-badge-warn  { background: rgba(180,130,0,0.82); color: #fff;    border: 1px solid rgba(255,200,50,0.5); }

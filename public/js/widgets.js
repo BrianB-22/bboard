@@ -1185,7 +1185,7 @@ export function renderYoLinkTemp(el, sensor, history, hours, data) {
     return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
-  const reportedLabel = sensor.reportAt ? `last reading ${fmtReportAt(sensor.reportAt)}` : '';
+  const reportedLabel = sensor.reportAt ? `last reading ${fmtReportAt(sensor.reportAt)}${sensor.stale ? ' (Cache)' : ''}` : '';
 
   el.innerHTML = `
     ${banner}
