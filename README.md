@@ -152,19 +152,19 @@ The server screen displays live stats about the machine running bboard. Most dat
 
 ### bboard-health.sh
 
-Copy `bboard-health.sh` to the server and run it via cron as root. It writes structured key=value data to `/home/brian/bboard-health.txt` which the `/api/server/health` endpoint reads.
+`bboard-health.sh` is included in the repo and deploys to `/opt/bboard/` automatically. It runs as root via cron and writes structured key=value data to `/home/brian/bboard-health.txt`, which the `/api/server/health` endpoint reads.
 
 ```bash
 # Install dependencies (Debian/Ubuntu)
 sudo apt install lm-sensors smartmontools
 
-# Run sensors detect once to configure lm-sensors
+# Run sensors-detect once to configure lm-sensors
 sudo sensors-detect
 
 # Add to root crontab (sudo crontab -e)
 */5 * * * * /opt/bboard/bboard-health.sh
 
-# Run immediately to populate data
+# Run immediately to populate data without waiting for cron
 sudo /opt/bboard/bboard-health.sh
 ```
 
