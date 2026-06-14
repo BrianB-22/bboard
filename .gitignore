@@ -2,3 +2,5 @@ node_modules/
 .DS_Store
 .claude/
 .env
+data/temp-history.json
+screens/*.delete
