@@ -4,3 +4,4 @@ node_modules/
 .env
 data/temp-history.json
 screens/*.delete
+keys/
