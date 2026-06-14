@@ -15,6 +15,7 @@
     {
       "type": "calendar-month",
       "id": "cal-main",
+      "highContrastText": true,
       "style": { "top": "14%", "left": "0.5%", "width": "99%", "height": "85%" }
     }
   ]

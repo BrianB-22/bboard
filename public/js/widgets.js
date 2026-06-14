@@ -1046,8 +1046,9 @@ export function renderAstroInfo(el) {
 }
 
 // ─── Month Calendar ───────────────────────────────────────────────
-export function renderCalendarMonth(el, customDates = []) {
+export function renderCalendarMonth(el, customDates = [], cfg = {}) {
   el.classList.add('widget-glass', 'widget-cal');
+  if (cfg.highContrastText) el.classList.add('cal-hc');
 
   const today = new Date();
   const year  = today.getFullYear();

@@ -442,7 +442,7 @@ async function mountWidget(widgetCfg) {
 
     case 'calendar-month': {
       const cd = await fetchCustomDates().catch(() => ({ dates: [] }));
-      renderCalendarMonth(el, cd.dates || []);
+      renderCalendarMonth(el, cd.dates || [], widgetCfg);
       // Redraw at midnight
       const now = new Date();
       const msToMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now;
@@ -450,7 +450,7 @@ async function mountWidget(widgetCfg) {
         const refresh = async () => {
           const ncd = await fetchCustomDates().catch(() => ({ dates: [] }));
           el.innerHTML = ''; el.className = 'widget';
-          renderCalendarMonth(el, ncd.dates || []);
+          renderCalendarMonth(el, ncd.dates || [], widgetCfg);
         };
         refresh();
         setInterval(refresh, 86400000);

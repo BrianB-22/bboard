@@ -808,3 +808,250 @@ http://192.168.0.75:3030/?screen=server
 ```
 
 This works even if the screen is set to `"enabled": false` in `schedule.json`. The screen's JSON file **must have a matching `id` field** or this returns a "not found" error.
+
+---
+
+## Design guide
+
+This section is the practical companion to the spec above — how to think about composing a screen, what sizes work, and how to lay out a new screen from scratch without trial and error.
+
+---
+
+### The coordinate system in plain terms
+
+The screen is always full-viewport. Treat it as a 100×100 grid where every value is a percentage. `top: "10%"` means 10% down from the top edge. Widgets don't interact with each other — there is no flex, no flow, no margin collapse. You place everything by hand. Overlap is possible and sometimes intentional (e.g. a badge over a map) but usually a mistake.
+
+The display this is designed for is a **16:9 landscape TV or monitor**. Design for that ratio. Vertical space is more precious than horizontal.
+
+---
+
+### Widget minimum usable sizes
+
+Going below these will clip content or make text unreadable at TV viewing distance:
+
+| Widget | Min width | Min height | Notes |
+|--------|-----------|------------|-------|
+| `clock` | 20% | 9% | Wider if `weekCalendar: true` (needs ~40%+) |
+| `aqi` | 10% | 10% | Square looks best |
+| `alerts` | 30% | 6% | Short, wide |
+| `weather-current` | 25% | 22% | Needs height for icon + stats |
+| `weather-hourly` | 25% | 20% | Gets cramped under 4 hours |
+| `weather-daily` | 30% | 20% | |
+| `iframe` | 25% | 35% | Maps need room to be readable |
+| `image` | 20% | 20% | |
+| `yolink-door` | 20% | 22% | Smaller is fine for a compact row |
+| `yolink-temp` | 28% | 22% | Graph needs height |
+| `nhl-scores` | 22% | 50% | Tall — needs room for multiple games |
+| `nhl-schedule` | 25% | 50% | |
+| `nhl-bracket` | 35% | 60% | Bracket is wide |
+| `calendar-month` | 80% | 70% | Needs most of the screen |
+| `astro-info` | 50% | 9% | Short bar widget |
+| `server-stats` | 60% | 8% | Thin bar |
+| `server-hardware` | 18% | 35% | |
+| `server-drives` | 12% | 35% | Can be narrow |
+| `server-ups` | 20% | 35% | |
+| `server-load` | 18% | 35% | |
+| `server-docker` | 35% | 30% | Needs width for 3-column card grid |
+| `server-storage` | 40% | 30% | Table needs width for all columns |
+
+---
+
+### Layout archetypes
+
+Most screens fit one of these patterns. Start from the closest one and adjust.
+
+#### Header + body
+
+A thin bar across the top (clock, status) with one or two large widgets filling the rest.
+
+```
+┌─────────────────────────────────────────┐
+│  clock / status bar          top 1–12%  │
+├─────────────────────────────────────────┤
+│                                         │
+│         main content                    │
+│         top 14–98%                      │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+Used by: `calendar` screen (clock + astro bar, then full calendar).
+
+#### Header + columns
+
+Top bar, then 2–4 equal columns below.
+
+```
+┌─────────────────────────────────────────┐
+│  header                      top 1–12%  │
+├───────────┬───────────┬─────────────────┤
+│  col A    │  col B    │  col C          │
+│  top 14%  │  top 14%  │  top 14%        │
+│           │           │                 │
+└───────────┴───────────┴─────────────────┘
+```
+
+Used by: `home` screen (clock, then 4 door sensors × 2 rows, then 3 temp graphs).
+
+#### Header + rows
+
+Top bar, then stacked full-width or near-full-width sections.
+
+```
+┌─────────────────────────────────────────┐
+│  header bar                  top 2–12%  │
+├─────────────────────────────────────────┤
+│  row 1                      top 14–54%  │
+├─────────────────────────────────────────┤
+│  row 2A          │  row 2B  top 56–98%  │
+└──────────────────┴──────────────────────┘
+```
+
+Used by: `server` screen (stats bar, then 4 health widgets, then docker + storage).
+
+#### Map + strip
+
+Large map or visual widget covering the middle, small widgets top and bottom.
+
+```
+┌─────────────────────────────────────────┐
+│  top widgets                 top 1–12%  │
+├──────────┬──────────┬───────────────────┤
+│          │          │                   │
+│  map /   │  map /   │  map /            │
+│  iframe  │  iframe  │  iframe           │
+│         top 13–73%                      │
+├──────────┴──────────┴───────────────────┤
+│  bottom strip               top 74–98%  │
+└─────────────────────────────────────────┘
+```
+
+Used by: `weather` screen (clock + alerts + AQI, then 3 maps, then weather strip).
+
+---
+
+### Row arithmetic
+
+The most common layout mistake is rows that don't add up. Use this formula before writing coordinates:
+
+```
+top of row N+1 = top of row N + height of row N + gap (1–2%)
+```
+
+Example — 3 rows with 2% margins and 2% gaps:
+- Row 1: `top: 2%`, `height: 12%` → ends at 14%
+- Gap: 2%
+- Row 2: `top: 16%`, `height: 38%` → ends at 54%
+- Gap: 2%
+- Row 3: `top: 56%`, `height: 42%` → ends at 98% ✓
+
+Always verify the last row ends at or before 98%.
+
+### Column arithmetic
+
+For N columns across a row, with standard 2% outer margins and ~1% gaps:
+
+```
+available width = 96%
+each column width = (96 - (N-1) × gap) / N
+column N left = 2% + N × (width + gap)
+```
+
+Example — 4 columns, 0.5% gap:
+- Width: `(96 - 1.5) / 4 = 23.6%` → round to `23.5%`
+- Starts: `2%`, `26%`, `50%`, `74%`
+
+Example — 3 columns, 1% gap:
+- Width: `(96 - 2) / 3 = 31.3%` → round to `31%`
+- Starts: `2%`, `34%`, `66%`
+
+---
+
+### Background pairing
+
+Match backgrounds to screen content and mood:
+
+| Screen type | Recommended background |
+|-------------|----------------------|
+| Weather | `animated-aurora` — dynamic, atmospheric |
+| Sports | `hockey-night` — thematic |
+| Calendar | `dark-slate` — neutral, doesn't compete with text |
+| Home/sensors | `dark-blue` — calm, easy to read |
+| Server/tech | `neon-tech` — fits the aesthetic |
+| Photo slideshow | `picsum-nature` / `picsum-space` / `picsum-city` |
+
+Avoid `animated-aurora` and `picsum-*` for dense data screens (server, calendar) — the movement competes with text. Use `dark-slate` or `dark-blue` when maximum readability matters.
+
+---
+
+### Existing screen layouts (reference)
+
+These are the actual coordinates used in production. Use as a starting point when creating similar screens.
+
+#### weather screen
+
+```
+clock (weekCalendar)     top:1%  left:0.5%  w:46%  h:11%
+alerts                   top:1%  left:47%   w:38%  h:7%
+aqi                      top:0.5% right:0.5% w:12% h:12%
+iframe (wind map)        top:13% left:0%    w:33%  h:60%
+image (NOAA map)         top:13% left:33%   w:34%  h:60%
+image (radar)            top:13% left:67%   w:33%  h:60%
+weather-current          bot:0%  left:0%    w:30%  h:27%
+weather-hourly (4h)      bot:0%  left:30%   w:30%  h:27%
+weather-daily  (4d)      bot:0%  left:60%   w:40%  h:27%
+```
+
+#### home screen
+
+```
+clock                    top:1%  left:0.5%  w:46%  h:9%
+yolink-outlet            top:1%  left:48%   w:24%  h:9%
+yolink-door (×4, row 1)  top:12% left:0.5/25.5/50.5/75.5%  w:23.5/23.5/23.5/24%  h:28%
+yolink-door (×4, row 2)  top:42% left:0.5/25.5/50.5/75.5%  w:23.5/23.5/23.5/24%  h:28%
+yolink-temp (×3)         top:72% left:0.5/34/67.5%          w:32/32/32%            h:27%
+```
+
+#### calendar screen
+
+```
+clock                    top:1%  left:0.5%  w:22%  h:11%
+astro-info               top:1%  left:23.5% w:76%  h:11%
+calendar-month           top:14% left:0.5%  w:99%  h:85%
+```
+
+#### hockey screen
+
+```
+clock                    top:1%  left:0.5%  w:20%  h:9%
+rss (NHL news)           top:1%  left:21%   w:35%  h:9%
+nhl-scores               top:11% left:0%    w:28%  h:88%
+nhl-schedule             top:11% left:29%   w:30%  h:88%
+nhl-bracket              top:11% left:60%   w:40%  h:88%
+```
+
+#### server screen
+
+```
+server-stats (label)     top:2%  left:2%    w:96%  h:10%
+server-hardware          top:14% left:2%    w:24%  h:40%
+server-drives            top:14% left:28%   w:16%  h:40%
+server-ups               top:14% left:46%   w:26%  h:40%
+server-load              top:14% left:74%   w:24%  h:40%
+server-docker            top:56% left:2%    w:44%  h:42%
+server-storage           top:56% left:48%   w:50%  h:42%
+```
+
+---
+
+### Design checklist for a new screen
+
+Before finalizing a layout, verify:
+
+- [ ] `id` and `name` are at the top of the JSON and `id` matches the filename
+- [ ] All rows add up — last widget ends ≤ 98% vertically
+- [ ] All columns add up — last widget ends ≤ 98% horizontally  
+- [ ] No widget is below its minimum usable size
+- [ ] Background suits the content (avoid busy backgrounds on dense data screens)
+- [ ] Screen is registered in `schedule.json` with a background and duration
+- [ ] Test with `?screen=<id>` to view in isolation before enabling in rotation
