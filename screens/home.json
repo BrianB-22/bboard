@@ -17,7 +17,7 @@
     { "type": "yolink-door", "id": "door-garage3", "device": "Garage Door 3",        "style": { "top": "42%", "left": "0.5%",  "width": "23.5%", "height": "28%" } },
     { "type": "yolink-door", "id": "door-laundry", "device": "Laundry Room Door",    "style": { "top": "42%", "left": "25.5%", "width": "23.5%", "height": "28%" } },
     { "type": "yolink-door", "id": "door-crawl",   "device": "Crawl Space Door",     "style": { "top": "42%", "left": "50.5%", "width": "23.5%", "height": "28%" } },
-    { "type": "yolink-door", "id": "door-gun",     "device": "Gun Closet Door",      "style": { "top": "42%", "left": "75.5%", "width": "24%",   "height": "28%" } },
+    { "type": "yolink-door", "id": "door-3rdfloor",     "device": "3rd Closet Door",     "style": { "top": "42%", "left": "75.5%", "width": "24%",   "height": "28%" } },
 
     { "type": "yolink-temp", "id": "temp-outdoor",  "device": "Outdoor Temp",       "style": { "top": "72%", "left": "0.5%",  "width": "32%", "height": "27%" } },
     { "type": "yolink-temp", "id": "temp-freezer1", "device": "Freezer - Chest",    "style": { "top": "72%", "left": "34%",   "width": "32%", "height": "27%" } },
