@@ -138,6 +138,10 @@ All free, no keys required (except YoLink for sensor integration):
 - [Picsum Photos](https://picsum.photos/) — rotating background images
 - [YoSmart/YoLink](https://www.yosmart.com/) — sensor data (requires credentials)
 
+## Security Note
+
+This app is designed to run on a private LAN and is not hardened for public hosting. The proxy endpoints (`/api/proxy-image`, `/api/rss`, `/api/json-fetch`) will fetch any URL passed to them, and there is no authentication. If you choose to expose this to the internet, additional hardening measures (URL allowlists, authentication, reverse proxy with rate limiting, etc.) should be put in place first.
+
 ---
 
 Built by [Brian Bernacki](https://bernacki.me)
