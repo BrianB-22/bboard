@@ -1,4 +1,4 @@
-import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory } from './api.js';
+import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams } from './api.js';
 import {
   renderClock, renderAQI, renderAlerts, renderIframe, renderImage,
   renderWeatherCurrent, renderWeatherHourly, renderWeatherDaily,
@@ -17,6 +17,7 @@ let aqiData = null;
 let weatherFailCount = 0;
 let yolinkData = null;
 const yolinkCallbacks = [];
+let favoriteTeams = [];
 
 // ─── Failsafe reloads ────────────────────────────────────────────
 // 1. Nightly at 3am — clears memory leaks, picks up config changes
@@ -231,11 +232,13 @@ async function mountWidget(widgetCfg) {
     case 'nhl-scores': {
       const d = await fetchNHLScores().catch(() => null);
       renderNHLScores(el, d);
+      updateHockeyAlerts(d);
       setInterval(async () => {
         const nd = await fetchNHLScores().catch(() => null);
         el.innerHTML = '';
         el.className = 'widget';
         renderNHLScores(el, nd);
+        updateHockeyAlerts(nd);
       }, 60 * 1000);
       break;
     }
@@ -460,6 +463,8 @@ function showPage(idx) {
   const onHome = config.pages[idx]?.id === 'home';
   const corner = document.getElementById('yl-top-right');
   if (corner) corner.hidden = !onHome;
+  const hockeyBanner = document.getElementById('hockey-alert-banner');
+  if (hockeyBanner) hockeyBanner.hidden = config.pages[idx]?.id !== 'hockey';
 }
 
 function startRotation() {
@@ -551,11 +556,38 @@ function updateAlertBanner(data) {
   ).join('');
 }
 
+// ─── Hockey favorite teams alert ─────────────────────────────────
+function updateHockeyAlerts(nhlData) {
+  let banner = document.getElementById('hockey-alert-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'hockey-alert-banner';
+    document.body.appendChild(banner);
+  }
+  banner.hidden = config.pages[currentPage]?.id !== 'hockey';
+
+  if (!nhlData || !favoriteTeams.length) return;
+
+  const todayGames = (nhlData.schedule ?? []).find(d => d.date === nhlData.todayStr)?.games ?? [];
+  const matches = todayGames.filter(g =>
+    favoriteTeams.some(abbr => g.awayAbbr === abbr || g.homeAbbr === abbr)
+  );
+
+  if (!matches.length) { banner.innerHTML = ''; return; }
+
+  banner.innerHTML = matches.map(g => {
+    const isLive = g.gameState === 'LIVE' || g.gameState === 'CRIT';
+    const isDone = g.gameState === 'FINAL' || g.gameState === 'OFF';
+    const status = isLive ? '🔴 LIVE' : isDone ? 'FINAL' : g.startTime;
+    return `<div class="hockey-alert-pill">${g.awayAbbr} vs ${g.homeAbbr}<br><span>${status}</span></div>`;
+  }).join('');
+}
+
 // ─── Indicator dots ──────────────────────────────────────────────
 function buildIndicator(count) {
   const container = document.getElementById('page-indicator');
   container.innerHTML = '';
-  if (count <= 1) return;
+  if (count <= 1 || !config.site?.showScreenIndicator) return;
 
   for (let i = 0; i < count; i++) {
     const dot = document.createElement('button');
@@ -588,6 +620,7 @@ async function init() {
     return;
   }
 
+  favoriteTeams = await fetchFavoriteTeams().catch(() => []);
   await Promise.all([loadWeather(), loadAQI(), loadYoLink()]);
   setInterval(loadYoLink, 5 * 60 * 1000);
 
@@ -603,11 +636,11 @@ async function init() {
   if (!pinnedScreen) startRotation();
   scheduleNightlyReload();
 
-  const configSnapshot = JSON.stringify(config);
+  const configLastUpdated = config.lastUpdated ?? 0;
   setInterval(async () => {
     try {
       const fresh = await fetchConfig();
-      if (JSON.stringify(fresh) !== configSnapshot) location.reload();
+      if ((fresh.lastUpdated ?? 0) !== configLastUpdated) location.reload();
     } catch {}
   }, 5 * 60 * 1000);
 }

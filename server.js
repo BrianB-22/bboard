@@ -1,5 +1,5 @@
 import express from 'express';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -43,7 +43,15 @@ app.get('/api/config', (req, res) => {
       })
       .filter(Boolean);
 
-    res.json({ site: schedule.site, pages });
+    const configFiles = [
+      join(__dirname, 'schedule.json'),
+      join(__dirname, 'backgrounds.json'),
+      join(__dirname, 'public', 'index.html'),
+      ...readdirSync(join(__dirname, 'screens')).map(f => join(__dirname, 'screens', f)),
+    ];
+    const lastUpdated = Math.max(...configFiles.map(f => statSync(f).mtimeMs));
+
+    res.json({ site: schedule.site, pages, lastUpdated });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Failed to build config', detail: e.message });
@@ -154,6 +162,15 @@ app.get('/api/nhl/scores', async (req, res) => {
     res.json({ games, gamesDate, schedule, isPlayoffs, todayStr });
   } catch (e) {
     res.status(500).json({ error: 'NHL fetch failed', detail: e.message });
+  }
+});
+
+app.get('/api/favorite-teams', (req, res) => {
+  try {
+    const teams = JSON.parse(readFileSync('./data/favorite-teams.json', 'utf8'));
+    res.json(teams);
+  } catch {
+    res.json([]);
   }
 });
 

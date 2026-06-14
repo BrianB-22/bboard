@@ -750,10 +750,11 @@ export function renderNHLSchedule(el, data) {
                          g.startTime || '';
 
       let seriesTag = '';
+      let conf = '';
       if (g.seriesStatus) {
         const s = g.seriesStatus;
         const abbrev = s.seriesAbbrev || '';
-        const conf = abbrev.includes('SCF') ? 'F' : abbrev.includes('E') ? 'E' : abbrev.includes('W') ? 'W' : '';
+        conf = abbrev.includes('SCF') ? 'F' : abbrev.includes('E') ? 'E' : abbrev.includes('W') ? 'W' : '';
         const aW = s.topSeedTeamAbbrev === g.awayAbbr ? s.topSeedWins : s.bottomSeedWins;
         const hW = s.topSeedTeamAbbrev === g.homeAbbr ? s.topSeedWins : s.bottomSeedWins;
         const leader = aW > hW ? g.awayAbbr : hW > aW ? g.homeAbbr : null;
@@ -766,14 +767,15 @@ export function renderNHLSchedule(el, data) {
         }
       }
 
+      const confAttr = conf ? ` data-conf="${conf}"` : '';
       return `
         <div class="sched-row ${isLive ? 'sched-live' : ''}">
           <div class="sched-matchup">
-            <span class="sched-abbr">${g.awayAbbr}</span>
+            <span class="sched-abbr"${confAttr}>${g.awayAbbr}</span>
             ${showScore ? `<span class="sched-score">${g.awayScore}</span>` : ''}
             <span class="sched-at">@</span>
             ${showScore ? `<span class="sched-score">${g.homeScore}</span>` : ''}
-            <span class="sched-abbr">${g.homeAbbr}</span>
+            <span class="sched-abbr"${confAttr}>${g.homeAbbr}</span>
           </div>
           <div class="sched-meta">
             ${seriesTag}
@@ -809,13 +811,16 @@ export function renderNHLBracket(el, data) {
   const cols = data.rounds.map(round => {
     const label = ROUND_LABELS[round.roundNumber] || round.roundAbbrev || `R${round.roundNumber}`;
 
-    const cards = round.series.map(s => {
+    const cards = round.series.map((s, idx) => {
       const top = s.topSeed;
       const bot = s.bottomSeed;
       if (!top || !bot) return '';
 
       const topWon = s.winningTeamId && s.winningTeamId === top.id;
       const botWon = s.winningTeamId && s.winningTeamId === bot.id;
+
+      const total = round.series.length;
+      const confClass = total === 1 ? 'bcard-final' : idx < total / 2 ? 'bcard-east' : 'bcard-west';
 
       const pips = (wins) => Array.from({ length: 4 }, (_, i) =>
         `<span class="bp ${i < wins ? 'bpf' : ''}"></span>`
@@ -829,7 +834,7 @@ export function renderNHLBracket(el, data) {
         </div>`;
 
       return `
-        <div class="bcard ${s.winningTeamId ? 'bcard-done' : ''}">
+        <div class="bcard ${s.winningTeamId ? 'bcard-done' : ''} ${confClass}">
           ${teamRow(top.abbrev, top.wins, topWon, botWon)}
           ${teamRow(bot.abbrev, bot.wins, botWon, topWon)}
         </div>`;

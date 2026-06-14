@@ -792,6 +792,9 @@ html, body {
 }
 
 .sched-abbr  { font-weight: 700; }
+.sched-abbr[data-conf="E"] { color: #f0874a; }
+.sched-abbr[data-conf="W"] { color: #60aaff; }
+.sched-abbr[data-conf="F"] { color: #e8cc40; }
 .sched-score { font-weight: 200; font-size: 1.1em; min-width: 10px; text-align: center; }
 .sched-at    { color: var(--text-secondary); font-size: 0.8em; }
 
@@ -898,6 +901,12 @@ html, body {
   min-width: 26px;
   font-size: clamp(0.6rem, 1.05vmin, 0.82rem);
 }
+.bcard-east  .bt-abbr { color: #e8e8e8; }
+.bcard-west  .bt-abbr { color: #ff5252; }
+.bcard-final .bt-abbr { color: #ffd740; }
+.bcard-east  .bt-w .bt-abbr { color: #60aaff; }
+.bcard-west  .bt-w .bt-abbr { color: var(--accent-green); }
+.bcard-final .bt-w .bt-abbr { color: var(--accent-green); }
 
 .bt-pips {
   display: flex;
@@ -914,6 +923,11 @@ html, body {
 
 .bpf { background: var(--accent); }
 .bt-w .bpf { background: var(--accent-green); }
+.bcard-east  .bpf { background: #e8e8e8; }
+.bcard-east  .bt-w .bpf { background: #60aaff; }
+.bcard-west  .bpf { background: #ff5252; }
+.bcard-west  .bt-w .bpf { background: var(--accent-green); }
+.bcard-final .bpf { background: #ffd740; }
 
 .bt-num {
   font-size: clamp(0.5rem, 0.9vmin, 0.7rem);
@@ -1415,7 +1429,7 @@ html, body {
 .cal-weekend .cal-day-num { color: var(--text-secondary); }
 
 .cal-event {
-  font-size: clamp(0.52rem, 0.8vw, 0.68rem);
+  font-size: clamp(0.7rem, 1.1vw, 0.9rem);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -1758,4 +1772,42 @@ html, body {
   background: rgba(180, 130, 0, 0.82);
   color: #fff;
   border: 1px solid rgba(255,200,50,0.5);
+}
+
+/* ── Hockey favorite teams alert banner ────────────────── */
+#hockey-alert-banner[hidden] { display: none !important; }
+#hockey-alert-banner {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 60vw;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.hockey-alert-pill {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: rgba(0,90,160,0.85);
+  color: #c8eaff;
+  border: 1px solid rgba(100,195,255,0.45);
+  font-size: clamp(0.68rem, 1vw, 0.82rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  line-height: 1.5;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+.hockey-alert-pill span {
+  display: block;
+  font-size: clamp(0.6rem, 0.9vw, 0.74rem);
+  font-weight: 600;
+  opacity: 0.9;
 }

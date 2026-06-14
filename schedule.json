@@ -5,7 +5,8 @@
       "lat": 34.92,
       "lon": -80.74,
       "name": "Charlotte, NC"
-    }
+    },
+    "showScreenIndicator": true
   },
   "pages": [
     {

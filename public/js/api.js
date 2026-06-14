@@ -49,6 +49,11 @@ export async function fetchCustomDates() {
   return r.json();
 }
 
+export async function fetchFavoriteTeams() {
+  const r = await fetch('/api/favorite-teams');
+  return r.json();
+}
+
 export async function fetchYoLink() {
   const r = await fetch('/api/yolink/states');
   return r.json();
