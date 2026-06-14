@@ -87,6 +87,13 @@ main {
 }
 .field-row:last-child { margin-bottom: 0; }
 
+.field-hint {
+  margin: -6px 0 14px 0;
+  font-size: 0.78rem;
+  color: var(--dim);
+  line-height: 1.4;
+}
+
 .field-row label {
   width: 160px;
   flex-shrink: 0;
