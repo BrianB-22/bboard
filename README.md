@@ -81,7 +81,7 @@ The full widget reference — types, options, positioning, backgrounds — is in
 
 ## Security note
 
-bboard is designed for a private LAN and is not hardened for public hosting. The proxy endpoints will fetch any URL passed to them, and there is no authentication. If you expose this to the internet, put it behind a reverse proxy with authentication and rate limiting.
+bboard is designed for a private LAN and is not hardened for public hosting. The proxy endpoints will fetch any URL passed to them, and there is no authentication. Additional hardening, authentication, etc. would be required before any public or enterprise hosting.
 
 ## Docs
 
