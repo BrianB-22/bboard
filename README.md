@@ -33,7 +33,7 @@ The server can be anything from a Raspberry Pi to a full desktop. The display ("
 ## Why bboard
 
 - **No subscriptions.** All data sources are free. Weather, alerts, sports — no keys, no accounts, no monthly fees.
-- **No cloud dependency.** Runs entirely on your local network. The only outbound calls are to public APIs for live data.
+- **No cloud dependency.** Runs entirely on your local network. The only outbound calls are to public APIs for live data. Your home sensor data, schedule, and layout never leave your network.
 - **Modular and extensible.** Add a new screen by dropping a JSON file in `screens/`. Add a widget type by writing one JS module. No build step, no framework, no boilerplate.
 - **Runs on anything.** The server can be a Raspberry Pi, an old laptop, a NAS, or a full server. The display just needs a web browser — smart TV, Pi with HDMI, laptop, anything.
 - **Fully remote-managed.** Once the browser is open on the display, you never touch it again. All changes — schedule, layout, backgrounds, durations — are made on the server and pushed to every connected screen automatically.
