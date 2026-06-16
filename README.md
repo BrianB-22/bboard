@@ -92,6 +92,10 @@ bboard is designed for a private LAN and is not hardened for public hosting. The
 | [spec.md](spec.md) | Full functional specification |
 | [design.md](design.md) | Visual design guide — typography, colors, glass morphism, layout conventions |
 
+## Disclaimer
+
+This software is provided as-is. No warranties or guarantees of fitness for any particular purpose are expressed or implied. Use at your own risk.
+
 ---
 
 Built by [Brian Bernacki](https://bernacki.me)
