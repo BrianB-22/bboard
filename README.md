@@ -1,6 +1,6 @@
 # bboard
 
-A self-hosted, always-on dashboard for a monitor or TV — a free alternative to Dakboard. Drop it on any server, point a browser at it, and you have a living display that rotates through weather, sports, home automation, calendar, and server health.
+A self-hosted, always-on dashboard for a monitor or TV — a free alternative to Dakboard. Drop it on any server, point a browser at it, and you have a living display that rotates through weather, sports, home automation, calendar, and server health. It ships with five ready-to-use screens and is built to grow — add your own custom screens by combining 30+ widgets to show exactly what you want.
 
 The server can be anything from a Raspberry Pi to a full desktop. The display ("smart board") can be anything that runs a web browser — a computer, a Raspberry Pi with an HDMI screen, or a smart TV. Once the page is loaded, everything is managed remotely from the server: no touching the display device.
 
