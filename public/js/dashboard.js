@@ -1,4 +1,4 @@
-import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams } from './api.js';
+import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams, fetchStocks } from './api.js';
 import {
   renderClock, renderAQI, renderAlerts, renderIframe, renderImage,
   renderWeatherCurrent, renderWeatherHourly, renderWeatherDaily,
@@ -8,6 +8,7 @@ import {
   renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp, renderYoLinkOutlet, renderYoLinkSmoke,
   renderServerStats, renderServerStorage,
   renderServerHardware, renderServerDrives, renderServerUPS, renderServerLoad, renderServerDocker,
+  renderStockTicker, renderStockCountdown, renderStockCharts,
 } from './widgets.js';
 
 let config = null;
@@ -534,6 +535,32 @@ async function mountWidget(widgetCfg) {
       setInterval(loadServerStorage, 120 * 1000);
       break;
     }
+
+    case 'stock-ticker': {
+      async function loadStockTicker() {
+        const d = await fetchStocks().catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderStockTicker(el, d);
+      }
+      await loadStockTicker();
+      setInterval(loadStockTicker, 60 * 1000);
+      break;
+    }
+
+    case 'stock-countdown':
+      renderStockCountdown(el);
+      break;
+
+    case 'stock-charts': {
+      async function loadStockCharts() {
+        const d = await fetchStocks().catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderStockCharts(el, d);
+      }
+      await loadStockCharts();
+      setInterval(loadStockCharts, 60 * 1000);
+      break;
+    }
   }
 
   return el;
@@ -747,7 +774,7 @@ async function init() {
 
   favoriteTeams = await fetchFavoriteTeams().catch(() => []);
   await Promise.all([loadWeather(), loadAQI(), loadYoLink()]);
-  setInterval(loadYoLink, 5 * 60 * 1000);
+  setInterval(loadYoLink, 60 * 1000);
 
   const container = document.getElementById('pages-container');
   for (const pageCfg of pageList) {

@@ -635,10 +635,10 @@ function parseHealthFile(text) {
   // Collect all drive_XXX_* keys into an array
   const driveMap = {};
   for (const [k, v] of Object.entries(kv)) {
-    const m = k.match(/^drive_(\w+)_(model|temp)$/);
+    const m = k.match(/^drive_(\w+)_(model|temp|health|realloc)$/);
     if (m) {
       driveMap[m[1]] ??= { dev: m[1] };
-      driveMap[m[1]][m[2]] = m[2] === 'temp' ? parseInt(v) : v;
+      driveMap[m[1]][m[2]] = (m[2] === 'temp' || m[2] === 'realloc') ? parseInt(v) : v;
     }
   }
 
@@ -784,6 +784,60 @@ app.post('/api/admin/screens/:name/restore', (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Stocks ─────────────────────────────────────────────────────
+let stockCache = null;
+let stockCacheTime = 0;
+
+app.get('/api/stocks', async (req, res) => {
+  try {
+    const cfgPath = join(__dirname, 'data', 'stocks.json');
+    const cfg = existsSync(cfgPath) ? readJSON(cfgPath) : { symbols: [] };
+    const symbols = cfg.symbols || [];
+
+    if (!symbols.length) return res.json({ symbols: [], quotes: {}, updatedAt: Date.now() });
+
+    if (stockCache && Date.now() - stockCacheTime < 60_000) {
+      return res.json(stockCache);
+    }
+
+    const quotes = {};
+    await Promise.all(symbols.map(async sym => {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1mo`;
+        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; bboard/1.0)' } });
+        const data = await r.json();
+        const result = data?.chart?.result?.[0];
+        if (!result) return;
+
+        const meta = result.meta;
+        const q = result.indicators?.quote?.[0] || {};
+        const ts = result.timestamp || [];
+
+        const price = meta.regularMarketPrice ?? meta.chartPreviousClose;
+        const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price;
+        const change = price - prevClose;
+        const changePct = prevClose ? (change / prevClose) * 100 : 0;
+
+        const history = ts.map((t, i) => ({
+          t: t * 1000,
+          c: q.close?.[i] ?? null,
+          v: q.volume?.[i] ?? null,
+        })).filter(p => p.c != null);
+
+        quotes[sym] = { symbol: sym, price, change, changePct, volume: meta.regularMarketVolume, history };
+      } catch (e) {
+        console.error(`Stock fetch failed for ${sym}:`, e.message);
+      }
+    }));
+
+    stockCache = { symbols, quotes, updatedAt: Date.now() };
+    stockCacheTime = Date.now();
+    res.json(stockCache);
+  } catch (e) {
+    res.status(500).json({ error: 'Stock fetch failed', detail: e.message });
   }
 });
 

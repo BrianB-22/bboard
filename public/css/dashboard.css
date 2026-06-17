@@ -2365,6 +2365,19 @@ html, body {
   border-radius: 2px;
   overflow: hidden;
 }
+.sdr-dot {
+  font-size: 0.55rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.sdr-dot-ok   { color: #4caf50; }
+.sdr-dot-fail { color: #f44336; }
+.sdr-realloc {
+  font-size: 0.6rem;
+  color: #ffb300;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
 
 /* ─── server-ups ────────────────────────────────────────── */
 .widget-server-ups { overflow: hidden; }
@@ -2516,4 +2529,196 @@ html, body {
 }
 .sd-wrap .ss-container-since {
   font-size: 0.58rem;
+}
+
+/* ─── Stock Ticker ──────────────────────────────────────────────── */
+.widget-stock-ticker {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 0 0 0 10px;
+}
+
+.stk-ticker-track {
+  width: 100%;
+  overflow: hidden;
+}
+
+.stk-ticker-inner {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: stk-scroll 40s linear infinite;
+}
+
+@keyframes stk-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.stk-tick-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: 0 1.2rem;
+}
+
+.stk-tick-sym {
+  font-weight: 700;
+  font-size: clamp(1rem, 2.4vmin, 1.5rem);
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.stk-tick-price {
+  font-size: clamp(1rem, 2.4vmin, 1.5rem);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stk-tick-chg {
+  font-size: clamp(0.9rem, 2.1vmin, 1.3rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stk-tick-sep {
+  color: rgba(255,255,255,0.25);
+  font-size: 0.9rem;
+}
+
+.stk-tick-empty {
+  color: var(--text-secondary);
+  font-size: clamp(0.8rem, 1.5vmin, 1rem);
+  padding: 0 1rem;
+}
+
+/* ─── Stock Countdown ───────────────────────────────────────────── */
+.widget-stock-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stk-cd-wrap { text-align: center; }
+
+.stk-cd-label {
+  font-size: clamp(0.75rem, 1.8vmin, 1.1rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.3em;
+}
+
+.stk-cd-open  .stk-cd-label { color: var(--accent-green); }
+.stk-cd-closed .stk-cd-label { color: var(--text-secondary); }
+
+.stk-cd-timer {
+  font-size: clamp(1.1rem, 2.8vmin, 1.8rem);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Stock Charts ──────────────────────────────────────────────── */
+.widget-stock-charts {
+  padding: 0;
+  overflow: hidden;
+}
+
+.sc-grid {
+  display: grid;
+  height: 100%;
+  gap: 1%;
+  padding: 1%;
+  grid-auto-rows: 1fr;
+}
+
+.sc-cols-1 { grid-template-columns: 1fr; }
+.sc-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.sc-cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+.sc-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: var(--glass-blur);
+  padding: 10px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sc-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  flex-shrink: 0;
+  margin-bottom: 6px;
+}
+
+.sc-sym {
+  font-weight: 800;
+  font-size: clamp(1rem, 2.6vmin, 1.7rem);
+  letter-spacing: 0.04em;
+}
+
+.sc-price {
+  font-size: clamp(0.85rem, 2vmin, 1.3rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-chg {
+  font-size: clamp(0.72rem, 1.6vmin, 1rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.sc-chart-area {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.sc-spark-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sc-spark-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.sc-vol-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.sc-vol-bar {
+  flex: 1;
+  background: rgba(255,255,255,0.18);
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+}
+
+.sc-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: clamp(0.8rem, 1.5vmin, 1rem);
 }

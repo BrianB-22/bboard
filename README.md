@@ -30,6 +30,8 @@ The server can be anything from a Raspberry Pi to a full desktop. The display ("
 
 **Server** — CPU, RAM, swap, disk, and uptime at a glance. Hardware temperatures, drive temps, UPS status, load averages, Docker container health, and storage pair usage with backup age tracking.
 
+**Stocks** — scrolling ticker across the top, live market open/close countdown, and individual price charts with 30-day trend lines and volume bars for each symbol you configure. Powered by Yahoo Finance's public API — no key required. This is an example of what's possible; accuracy and reliability could be improved further with a paid or higher-quality data provider.
+
 ## Why bboard
 
 - **No subscriptions.** All data sources are free. Weather, alerts, sports — no keys, no accounts, no monthly fees.

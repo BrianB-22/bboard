@@ -1,0 +1,26 @@
+{
+  "id": "stocks",
+  "name": "Stocks",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "stk-clock",
+      "style": { "top": "2%", "left": "2%", "width": "20%", "height": "13%" }
+    },
+    {
+      "type": "stock-countdown",
+      "id": "stk-countdown",
+      "style": { "top": "2%", "left": "24%", "width": "22%", "height": "13%" }
+    },
+    {
+      "type": "stock-ticker",
+      "id": "stk-ticker",
+      "style": { "top": "2%", "left": "48%", "width": "50%", "height": "13%" }
+    },
+    {
+      "type": "stock-charts",
+      "id": "stk-charts",
+      "style": { "top": "17%", "left": "1%", "width": "98%", "height": "81%" }
+    }
+  ]
+}

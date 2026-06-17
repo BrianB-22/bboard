@@ -1441,12 +1441,25 @@ export function renderServerDrives(el, data) {
     return `<div class="sdr-tbar"><div class="sh-tfill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>`;
   };
 
-  const rows = drives.map(d => `<div class="sdr-row">
-    <span class="sdr-dev">${d.dev}</span>
-    ${d.model ? '<span class="sdr-badge">SSD</span>' : ''}
-    <span class="sdr-temp">${d.temp != null ? d.temp + '°C' : '—'}</span>
-    ${tempBar(d.temp)}
-  </div>`).join('');
+  const rows = drives.map(d => {
+    const failed  = d.health && d.health !== 'PASSED';
+    const warnDot = failed
+      ? '<span class="sdr-dot sdr-dot-fail" title="SMART: FAILED">●</span>'
+      : d.health
+        ? '<span class="sdr-dot sdr-dot-ok" title="SMART: PASSED">●</span>'
+        : '';
+    const reallocWarn = d.realloc > 0
+      ? `<span class="sdr-realloc" title="Reallocated sectors: ${d.realloc}">⚠${d.realloc}</span>`
+      : '';
+    return `<div class="sdr-row">
+      ${warnDot}
+      <span class="sdr-dev">${d.dev}</span>
+      ${d.model ? '<span class="sdr-badge">SSD</span>' : ''}
+      ${reallocWarn}
+      <span class="sdr-temp">${d.temp != null ? d.temp + '°C' : '—'}</span>
+      ${tempBar(d.temp)}
+    </div>`;
+  }).join('');
 
   el.innerHTML = `
     <div class="sdr-wrap">
@@ -1683,4 +1696,167 @@ export function renderServerStats(el, data, cfg = {}) {
       </div>
     </div>
   `;
+}
+
+// ─── Stock Widgets ───────────────────────────────────────────────
+
+export function renderStockTicker(el, data) {
+  el.classList.add('widget-glass', 'widget-stock-ticker');
+  if (!data?.quotes || !data.symbols?.length) {
+    el.innerHTML = '<div class="stk-tick-empty">No stock data</div>';
+    return;
+  }
+  const items = data.symbols
+    .filter(s => data.quotes[s])
+    .map(s => {
+      const q = data.quotes[s];
+      const up = q.changePct >= 0;
+      const color = up ? 'var(--accent-green)' : 'var(--accent-red)';
+      const arrow = up ? '▲' : '▼';
+      return `<span class="stk-tick-item">
+        <span class="stk-tick-sym">${q.symbol}</span>
+        <span class="stk-tick-price">$${q.price.toFixed(2)}</span>
+        <span class="stk-tick-chg" style="color:${color}">${arrow} ${Math.abs(q.changePct).toFixed(2)}%</span>
+      </span>`;
+    }).join('<span class="stk-tick-sep"> · </span>');
+
+  // Duplicate content so the scroll loop is seamless
+  el.innerHTML = `<div class="stk-ticker-track"><div class="stk-ticker-inner">${items}<span class="stk-tick-sep"> · </span>${items}</div></div>`;
+}
+
+export function renderStockCountdown(el) {
+  el.classList.add('widget-glass', 'widget-stock-countdown');
+
+  function getET() {
+    const now = new Date();
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      weekday: 'short', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: false
+    });
+    const parts = fmt.formatToParts(now).reduce((a, p) => {
+      if (p.type !== 'literal') a[p.type] = p.value; return a;
+    }, {});
+    const dowMap = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+    const h = parseInt(parts.hour);
+    return { dow: dowMap[parts.weekday] ?? 0, h: h === 24 ? 0 : h, m: parseInt(parts.minute), s: parseInt(parts.second) };
+  }
+
+  function fmt(totalSec) {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}h ${m.toString().padStart(2,'0')}m`;
+    return `${m}m ${s.toString().padStart(2,'0')}s`;
+  }
+
+  function update() {
+    const { dow, h, m, s } = getET();
+    const secOfDay = h * 3600 + m * 60 + s;
+    const OPEN = 9 * 3600 + 30 * 60;
+    const CLOSE = 16 * 3600;
+    const isWeekday = dow >= 1 && dow <= 5;
+    const isOpen = isWeekday && secOfDay >= OPEN && secOfDay < CLOSE;
+
+    let label, countdown, cls;
+    if (isOpen) {
+      label = 'MARKET OPEN';
+      countdown = 'Closes in ' + fmt(CLOSE - secOfDay);
+      cls = 'stk-cd-open';
+    } else if (isWeekday && secOfDay < OPEN) {
+      label = 'MARKET CLOSED';
+      countdown = 'Opens in ' + fmt(OPEN - secOfDay);
+      cls = 'stk-cd-closed';
+    } else {
+      // After hours or weekend — count to next weekday 9:30 AM ET
+      const MIDNIGHT = 86400;
+      const secUntilMidnight = MIDNIGHT - secOfDay;
+      let nextDow = (dow + 1) % 7;
+      let daysAhead = 1;
+      while (nextDow === 0 || nextDow === 6) { nextDow = (nextDow + 1) % 7; daysAhead++; }
+      label = 'MARKET CLOSED';
+      countdown = 'Opens in ' + fmt(secUntilMidnight + (daysAhead - 1) * MIDNIGHT + OPEN);
+      cls = 'stk-cd-closed';
+    }
+
+    el.innerHTML = `
+      <div class="stk-cd-wrap ${cls}">
+        <div class="stk-cd-label">${label}</div>
+        <div class="stk-cd-timer">${countdown}</div>
+      </div>`;
+  }
+
+  update();
+  setInterval(update, 1000);
+}
+
+export function renderStockCharts(el, data) {
+  el.classList.add('widget-stock-charts');
+
+  if (!data?.quotes || !data.symbols?.length) {
+    el.innerHTML = '<div class="sc-empty">No stock data — check data/stocks.json</div>';
+    return;
+  }
+
+  const symbols = data.symbols.filter(s => data.quotes[s]);
+
+  function sparkline(history, sym) {
+    const pts = history.map(h => h.c).filter(v => v != null);
+    if (pts.length < 2) return '<div class="sc-spark-empty">No history</div>';
+    const w = 400, h = 80, pad = 4;
+    const min = Math.min(...pts), max = Math.max(...pts);
+    const range = max - min || 1;
+    const up = pts[pts.length - 1] >= pts[0];
+    const color = up ? 'var(--accent-green)' : 'var(--accent-red)';
+    const coords = pts.map((v, i) => {
+      const x = (i / (pts.length - 1)) * w;
+      const y = h - pad - ((v - min) / range) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const area = `M 0 ${h} L 0 ${(h - pad - ((pts[0] - min) / range) * (h - pad * 2)).toFixed(1)} ` +
+      pts.map((v, i) => {
+        const x = (i / (pts.length - 1)) * w;
+        const y = h - pad - ((v - min) / range) * (h - pad * 2);
+        return `L ${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' ') + ` L ${w} ${h} Z`;
+    const gid = `sg-${sym.replace(/[^a-z0-9]/gi, '')}`;
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="sc-spark-svg">
+      <defs>
+        <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${area}" fill="url(#${gid})"/>
+      <polyline points="${coords}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  function volBars(history) {
+    const vols = history.map(h => h.v).filter(v => v != null);
+    if (!vols.length) return '';
+    const max = Math.max(...vols) || 1;
+    return `<div class="sc-vol-row">${
+      vols.map(v => `<div class="sc-vol-bar" style="height:${((v / max) * 100).toFixed(1)}%"></div>`).join('')
+    }</div>`;
+  }
+
+  const cols = Math.min(symbols.length, 3);
+  const cards = symbols.map(sym => {
+    const q = data.quotes[sym];
+    const up = q.changePct >= 0;
+    const color = up ? 'var(--accent-green)' : 'var(--accent-red)';
+    const arrow = up ? '▲' : '▼';
+    const sign = up ? '+' : '';
+    return `<div class="sc-card">
+      <div class="sc-header">
+        <span class="sc-sym">${q.symbol}</span>
+        <span class="sc-price">$${q.price.toFixed(2)}</span>
+        <span class="sc-chg" style="color:${color}">${arrow} ${sign}${q.change.toFixed(2)} (${sign}${q.changePct.toFixed(2)}%)</span>
+      </div>
+      <div class="sc-chart-area">${sparkline(q.history, sym)}</div>
+      ${volBars(q.history)}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="sc-grid sc-cols-${cols}">${cards}</div>`;
 }
