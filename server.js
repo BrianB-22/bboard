@@ -98,9 +98,9 @@ app.get('/api/aqi', async (req, res) => {
 
 const MOCK_ALERTS = {
   features: [
-    { properties: { event: 'Severe Thunderstorm Warning', severity: 'Severe' } },
-    { properties: { event: 'Flash Flood Watch',           severity: 'Moderate' } },
-    { properties: { event: 'Heat Advisory',               severity: 'Minor' } },
+    { properties: { event: 'Severe Thunderstorm Warning', severity: 'Severe',   parameters: { NWSheadline: ['SEVERE THUNDERSTORM WARNING IN EFFECT UNTIL 4 PM EDT'] } } },
+    { properties: { event: 'Flash Flood Watch',           severity: 'Moderate', parameters: { NWSheadline: ['FLASH FLOOD WATCH THROUGH TONIGHT FOR HEAVY RAINFALL'] } } },
+    { properties: { event: 'Special Weather Statement',   severity: 'Minor',    parameters: { NWSheadline: ['THUNDERSTORMS POSSIBLE THIS AFTERNOON AND EVENING'] } } },
   ]
 };
 
@@ -635,10 +635,10 @@ function parseHealthFile(text) {
   // Collect all drive_XXX_* keys into an array
   const driveMap = {};
   for (const [k, v] of Object.entries(kv)) {
-    const m = k.match(/^drive_(\w+)_(model|temp|health|realloc)$/);
+    const m = k.match(/^drive_(\w+)_(model|temp|health|realloc|sleep)$/);
     if (m) {
       driveMap[m[1]] ??= { dev: m[1] };
-      driveMap[m[1]][m[2]] = (m[2] === 'temp' || m[2] === 'realloc') ? parseInt(v) : v;
+      driveMap[m[1]][m[2]] = (m[2] === 'temp' || m[2] === 'realloc') ? parseInt(v) : m[2] === 'sleep' ? true : v;
     }
   }
 
@@ -678,32 +678,14 @@ app.get('/api/server/health', (req, res) => {
 });
 
 // ─── Server Storage ───────────────────────────────────────────────
-function getStoragePairs() {
-  const nums = ['', '1', '2', '3', '4'];
-  const mnts = nums.flatMap(n => [`/data${n}`, `/backup${n}`]).join(' ');
-  return new Promise(resolve => {
-    exec(`df -Pk ${mnts} 2>/dev/null`, (_err, stdout) => {
-      const byMnt = {};
-      stdout.trim().split('\n').slice(1).forEach(line => {
-        const p = line.trim().split(/\s+/);
-        if (p.length >= 6) byMnt[p[5]] = { total: parseInt(p[1]) * 1024, used: parseInt(p[2]) * 1024 };
-      });
-      const pairs = nums.map(n => {
-        const d = `/data${n}`, b = `/backup${n}`;
-        if (!byMnt[d] && !byMnt[b]) return null;
-        const tsFile = `${b}/data${n}/backup-timestamp`;
-        let lastBackup = null;
-        try { if (existsSync(tsFile)) lastBackup = statSync(tsFile).mtime.toISOString(); } catch {}
-        return { dataMnt: d, backupMnt: b, data: byMnt[d] || null, backup: byMnt[b] || null, lastBackup };
-      }).filter(Boolean);
-      resolve(pairs);
-    });
-  });
-}
-
-app.get('/api/server/storage', async (req, res) => {
+app.get('/api/server/storage', (req, res) => {
   try {
-    res.json({ pairs: await getStoragePairs() });
+    const storagePath = process.env.STORAGE_FILE || '/home/brian/bboard-storage.json';
+    if (!existsSync(storagePath)) {
+      return res.json({ pairs: [], checkedAt: null, missing: true });
+    }
+    const data = readJSON(storagePath);
+    res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

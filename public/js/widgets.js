@@ -167,13 +167,45 @@ export function renderAlerts(el, data) {
   el.style.display = '';
   el.classList.add('widget-alerts');
 
+  function alertIcon(event) {
+    const e = (event || '').toLowerCase();
+    if (e.includes('tornado'))                              return '🌪️';
+    if (e.includes('hurricane') || e.includes('tropical')) return '🌀';
+    if (e.includes('thunderstorm'))                        return '⛈️';
+    if (e.includes('flood'))                               return '🌊';
+    if (e.includes('snow') || e.includes('blizzard') || e.includes('ice storm') || e.includes('winter storm')) return '❄️';
+    if (e.includes('freeze') || e.includes('frost'))       return '🧊';
+    if (e.includes('heat'))                                return '🌡️';
+    if (e.includes('fog'))                                 return '🌫️';
+    if (e.includes('fire') || e.includes('red flag'))      return '🔥';
+    if (e.includes('wind'))                                return '💨';
+    if (e.includes('rip current'))                         return '🏊';
+    return '⚠️';
+  }
+
+  function shortDesc(p) {
+    const nws = p.parameters?.NWSheadline?.[0];
+    if (nws) {
+      // NWSheadline is ALL CAPS — convert to sentence case
+      const text = nws.trim().replace(/\b\w+/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
+      return text.length > 90 ? text.slice(0, 88) + '…' : text;
+    }
+    if (p.description) {
+      const first = p.description.replace(/\n+/g, ' ').match(/([^.!?]+[.!?])/)?.[1]?.trim();
+      if (first) return first.length > 90 ? first.slice(0, 88) + '…' : first;
+    }
+    return null;
+  }
+
   const items = alerts.slice(0, 3).map(f => {
     const p = f.properties;
     const sev = (p.severity || '').toLowerCase();
     const color = sev === 'extreme' ? 'var(--accent-red)' :
                   sev === 'severe'  ? 'var(--accent-orange)' :
                   sev === 'moderate'? 'var(--accent-yellow)' : 'var(--accent)';
-    return `<span class="alert-item" style="color:${color}">⚠ ${p.event}</span>`;
+    const icon = alertIcon(p.event);
+    const desc = shortDesc(p);
+    return `<span class="alert-item" style="color:${color}">${icon} ${p.event}${desc ? `<span class="alert-desc"> — ${desc}</span>` : ''}</span>`;
   });
 
   el.innerHTML = items.join('<span class="alert-sep">  ·  </span>');
@@ -1456,8 +1488,10 @@ export function renderServerDrives(el, data) {
       <span class="sdr-dev">${d.dev}</span>
       ${d.model ? '<span class="sdr-badge">SSD</span>' : ''}
       ${reallocWarn}
-      <span class="sdr-temp">${d.temp != null ? d.temp + '°C' : '—'}</span>
-      ${tempBar(d.temp)}
+      ${d.sleep
+        ? '<span class="sdr-sleep">SLEEP</span>'
+        : `<span class="sdr-temp">${d.temp != null ? d.temp + '°C' : '—'}</span>${tempBar(d.temp)}`
+      }
     </div>`;
   }).join('');
 
@@ -1593,9 +1627,21 @@ export function renderServerStorage(el, data) {
   el.classList.add('widget-glass', 'widget-server-storage');
 
   if (!data?.pairs?.length) {
-    el.innerHTML = '<div class="sto-unavail">Storage data unavailable</div>';
+    const msg = data?.missing
+      ? 'Run bboard-storage.sh to populate storage data'
+      : 'Storage data unavailable';
+    el.innerHTML = `<div class="sto-unavail">${msg}</div>`;
     return;
   }
+
+  const checkedDays = data.checkedAt
+    ? (Date.now() - new Date(data.checkedAt)) / 86400000
+    : null;
+  const checkedLabel = checkedDays == null ? ''
+    : checkedDays < 1   ? 'checked today'
+    : checkedDays < 2   ? 'checked yesterday'
+    : `checked ${Math.floor(checkedDays)}d ago`;
+  const checkedCls = checkedDays == null || checkedDays < 8 ? '' : checkedDays < 14 ? 'sto-age-warn' : 'sto-age-crit';
 
   const fmtSz = b => {
     if (b == null) return '?';
@@ -1629,7 +1675,7 @@ export function renderServerStorage(el, data) {
   }).join('');
 
   el.innerHTML = `
-    <div class="sto-title">Storage</div>
+    <div class="sto-title">Storage ${checkedLabel ? `<span class="sto-checked ${checkedCls}">${checkedLabel}</span>` : ''}</div>
     <div class="sto-header">
       <div class="sto-h-pair">Drive Pair</div>
       <div class="sto-h-bar"></div>

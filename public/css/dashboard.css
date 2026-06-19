@@ -717,6 +717,11 @@ html, body {
   color: var(--text-secondary);
 }
 
+.alert-desc {
+  color: rgba(255,255,255,0.70);
+  font-weight: 500;
+}
+
 /* ─── NHL Scores ─────────────────────────────────────────────── */
 .widget-nhl {
   display: flex;
@@ -2199,6 +2204,15 @@ html, body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+}
+.sto-checked {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255,255,255,0.3);
 }
 .sto-rows {
   display: flex;
@@ -2357,6 +2371,13 @@ html, body {
   width: 3em;
   text-align: right;
   flex-shrink: 0;
+}
+.sdr-sleep {
+  font-size: clamp(0.6rem, 0.85vw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.3);
+  margin-left: auto;
 }
 .sdr-tbar {
   flex: 1;

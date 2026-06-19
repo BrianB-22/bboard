@@ -5,7 +5,9 @@
 # Output file is read by bboard's /api/server/health endpoint.
 # Set HEALTH_FILE in bboard's .env if you change OUTPUT below.
 
+PATH=/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
 OUTPUT=/home/brian/bboard-health.txt
+TMPFILE=$(mktemp /home/brian/.bboard-health.tmp.XXXXXX)
 
 {
   # ── Timestamp ─────────────────────────────────────────────────
@@ -36,19 +38,41 @@ OUTPUT=/home/brian/bboard-health.txt
     /Motherboard Fan:/ { match($0, /[0-9]+/);          print "fan_mb="       substr($0, RSTART, RLENGTH) }
   '
 
-  # ── Drive temps ───────────────────────────────────────────────
-  # SSD via hddtemp (also gives model name)
-  hddtemp /dev/sdb 2>/dev/null | grep '°C' | awk -F': ' '{
-    gsub(/°C/, "", $3)
-    print "drive_sdb_model=" $2
-    print "drive_sdb_temp="  $3
-  }'
-
-  # Spindle drives via smartctl
-  for dev in sdc sdd sde sdf sdg sdh sdi; do
-    temp=$(smartctl -A /dev/$dev 2>/dev/null | awk '/Temperature_Celsius/{print $10}')
-    [ -n "$temp" ] && echo "drive_${dev}_temp=$temp"
-  done
+  # ── Drive temps (auto-detect all drives via smartctl --scan) ──
+  # -n standby skips the drive entirely if it is parked/sleeping,
+  # preventing this script from waking attached or backup spinning disks.
+  while IFS= read -r scanline; do
+    dev=$(echo "$scanline" | awk '{print $1}')
+    [ -z "$dev" ] && continue
+    devname=$(basename "$dev")
+    smart_a=$(smartctl -n standby -A "$dev" 2>/dev/null)
+    # Exit code 2 means drive is in standby — record it and skip
+    if [ $? -eq 2 ]; then
+      echo "drive_${devname}_sleep=1"
+      continue
+    fi
+    temp=$(echo "$smart_a" | awk '
+      /Temperature_Celsius/       { t=$10 }
+      /Current Drive Temperature/ { t=$4  }
+      /^Temperature:/             { if (!t) t=$2 }
+      END { print t }
+    ')
+    health=$(smartctl -n standby -H "$dev" 2>/dev/null | awk '/overall-health self-assessment/{print $NF}')
+    # Skip drive only if no useful data at all
+    [ -z "$temp" ] && [ -z "$health" ] && continue
+    [ -n "$temp"   ] && echo "drive_${devname}_temp=$temp"
+    [ -n "$health" ] && echo "drive_${devname}_health=$health"
+    # Reallocated sectors (>0 = early warning)
+    realloc=$(echo "$smart_a" | awk '/Reallocated_Sector_Ct/{print $10}')
+    [ -n "$realloc" ] && [ "$realloc" -gt 0 ] 2>/dev/null && echo "drive_${devname}_realloc=$realloc"
+    # Only emit model for SSDs (rotation rate = Solid State Device or 0)
+    rotrate=$(smartctl -n standby -i "$dev" 2>/dev/null | awk -F': ' '/Rotation Rate/{gsub(/^[ \t]+/,"",$2);print $2}')
+    if echo "$rotrate" | grep -qi "solid state\|^0 "; then
+      model=$(smartctl -n standby -i "$dev" 2>/dev/null | awk -F': ' \
+        '/Device Model|Model Number/ { gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit }')
+      [ -n "$model" ] && echo "drive_${devname}_model=$model"
+    fi
+  done < <(smartctl --scan 2>/dev/null)
 
   # ── Swap ──────────────────────────────────────────────────────
   awk '/SwapTotal/{t=$2} /SwapFree/{f=$2} END{print "swap_used_kb=" t-f "\nswap_total_kb=" t}' /proc/meminfo
@@ -76,4 +100,6 @@ OUTPUT=/home/brian/bboard-health.txt
     if ($1 == "Last Power Event")  print "ups_last_event="   $2
   }'
 
-} > "$OUTPUT"
+} > "$TMPFILE"
+chmod 644 "$TMPFILE"
+mv "$TMPFILE" "$OUTPUT"

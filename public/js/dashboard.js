@@ -532,7 +532,7 @@ async function mountWidget(widgetCfg) {
         renderServerStorage(el, d);
       }
       await loadServerStorage();
-      setInterval(loadServerStorage, 120 * 1000);
+      setInterval(loadServerStorage, 6 * 60 * 60 * 1000);
       break;
     }
 

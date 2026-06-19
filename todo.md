@@ -41,6 +41,7 @@
 - [ ] **`image`** — add crossfade between refreshes instead of hard swap
 - [ ] **`clock`** — optional timezone display for second clock (e.g., show UTC or another city)
 - [ ] **`alerts`** — expand to show full alert text on click/tap
+- [x] **`alerts` banner** — show a short description and severity icon alongside the alert type (e.g. "⚠ Special Weather Statement — Thunderstorms possible this afternoon"); currently only shows the event name with no context, which isn't useful on a kiosk with no click/tap
 
 ---
 
