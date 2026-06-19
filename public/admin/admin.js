@@ -74,8 +74,7 @@ function renderPages() {
 }
 
 function renderAddPage() {
-  const usedScreens = new Set(pages.map(p => p.screen));
-  const available = state.screens.filter(s => !usedScreens.has(s) && !pendingDeletes.includes(s));
+  const available = state.screens.filter(s => !pendingDeletes.includes(s));
 
   const sel = document.getElementById('new-screen');
   sel.innerHTML = available.map(s => `<option value="${s}">${s}</option>`).join('');

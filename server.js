@@ -650,6 +650,7 @@ function parseHealthFile(text) {
     ambientTemp:    num('ambient_temp'),
     fans:           { processor: int('fan_proc'), motherboard: int('fan_mb') },
     drives:         Object.values(driveMap),
+    drivesScannedAt: kv.drives_scanned || null,
     swap:           { usedKb: int('swap_used_kb'), totalKb: int('swap_total_kb') },
     sshSessions:    int('ssh_sessions'),
     systemdFailed:  int('systemd_failed'),
@@ -666,12 +667,15 @@ function parseHealthFile(text) {
   };
 }
 
+const DRIVES_FILE = process.env.DRIVES_FILE || '/home/brian/bboard-drives.txt';
+
 app.get('/api/server/health', (req, res) => {
   try {
     if (!existsSync(HEALTH_FILE)) return res.json({ unavailable: true });
     const text = readFileSync(HEALTH_FILE, 'utf8');
     const ageSecs = Math.round((Date.now() - statSync(HEALTH_FILE).mtimeMs) / 1000);
-    res.json({ ...parseHealthFile(text), ageSecs, cpuCount: os.cpus().length });
+    const driveText = existsSync(DRIVES_FILE) ? readFileSync(DRIVES_FILE, 'utf8') : '';
+    res.json({ ...parseHealthFile(text + '\n' + driveText), ageSecs, cpuCount: os.cpus().length });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

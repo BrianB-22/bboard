@@ -1466,6 +1466,14 @@ export function renderServerDrives(el, data) {
   const staleNote = data.ageSecs > 300 ? ' <span class="sh-stale">stale</span>' : '';
   const drives = data.drives || [];
 
+  const scannedDays = data.drivesScannedAt
+    ? (Date.now() - new Date(data.drivesScannedAt)) / 86400000
+    : null;
+  const scannedLabel = scannedDays == null ? ''
+    : scannedDays < 1 ? 'checked today'
+    : scannedDays < 2 ? 'checked yesterday'
+    : `checked ${Math.floor(scannedDays)}d ago`;
+
   const tempBar = (t, high = 55, crit = 70) => {
     if (t == null) return '';
     const pct = Math.min(100, (t / crit) * 100);
@@ -1474,30 +1482,28 @@ export function renderServerDrives(el, data) {
   };
 
   const rows = drives.map(d => {
-    const failed  = d.health && d.health !== 'PASSED';
-    const warnDot = failed
-      ? '<span class="sdr-dot sdr-dot-fail" title="SMART: FAILED">●</span>'
-      : d.health
-        ? '<span class="sdr-dot sdr-dot-ok" title="SMART: PASSED">●</span>'
-        : '';
+    const failed = d.health && d.health !== 'PASSED';
+    const statusBadge = d.health
+      ? failed
+        ? '<span class="sdr-status sdr-status-fail">FAULT</span>'
+        : '<span class="sdr-status sdr-status-ok">HEALTHY</span>'
+      : '';
     const reallocWarn = d.realloc > 0
       ? `<span class="sdr-realloc" title="Reallocated sectors: ${d.realloc}">⚠${d.realloc}</span>`
       : '';
+    const tempStr = d.temp != null ? `<span class="sdr-temp">${d.temp}°C</span>` : '';
     return `<div class="sdr-row">
-      ${warnDot}
       <span class="sdr-dev">${d.dev}</span>
       ${d.model ? '<span class="sdr-badge">SSD</span>' : ''}
+      ${tempStr}
       ${reallocWarn}
-      ${d.sleep
-        ? '<span class="sdr-sleep">SLEEP</span>'
-        : `<span class="sdr-temp">${d.temp != null ? d.temp + '°C' : '—'}</span>${tempBar(d.temp)}`
-      }
+      ${statusBadge}
     </div>`;
   }).join('');
 
   el.innerHTML = `
     <div class="sdr-wrap">
-      <div class="sdr-title">Drives${staleNote}</div>
+      <div class="sdr-title">Drives${staleNote} ${scannedLabel ? `<span class="sdr-scanned">${scannedLabel}</span>` : ''}</div>
       ${rows || '<div class="sh-unavail">No drives</div>'}
     </div>
   `;
@@ -1531,6 +1537,7 @@ export function renderServerUPS(el, data) {
     <div class="su-wrap">
       <div class="su-title">UPS <span class="sh-ups-badge ${upsBadgeCls}">${upsBadgeLabel}</span>${staleNote}</div>
       <div class="sh-ups-batt">
+        <span class="sh-lbl">Battery</span>
         <div class="sh-bbar"><div class="sh-bfill ${ups.batteryPct < 30 ? 'sh-bar-warn' : 'sh-bar-ok'}" style="width:${ups.batteryPct ?? 0}%"></div></div>
         <span class="sh-bpct">${ups.batteryPct != null ? ups.batteryPct + '%' : '—'}</span>
       </div>

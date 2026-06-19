@@ -1638,7 +1638,7 @@ html, body {
 }
 
 .yld-name {
-  font-size: clamp(0.55rem, 0.9vw, 0.75rem);
+  font-size: clamp(0.65rem, 1.1vw, 0.9rem);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1646,7 +1646,7 @@ html, body {
 }
 
 .yld-state {
-  font-size: clamp(1.1rem, 2.2vw, 1.8rem);
+  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1;
@@ -1657,7 +1657,7 @@ html, body {
 .yld-unknown { color: var(--text-secondary); }
 
 .yld-changed {
-  font-size: clamp(0.5rem, 0.78vw, 0.62rem);
+  font-size: clamp(0.7rem, 1.1vw, 0.88rem);
   color: var(--text-secondary);
 }
 
@@ -2334,6 +2334,13 @@ html, body {
   box-sizing: border-box;
   gap: 0.15em;
 }
+.sdr-scanned {
+  font-size: 0.7em;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255,255,255,0.3);
+}
 .sdr-title {
   font-size: clamp(0.7rem, 1.1vw, 0.85rem);
   font-weight: 600;
@@ -2368,31 +2375,27 @@ html, body {
   font-size: clamp(0.68rem, 0.95vw, 0.8rem);
   font-weight: 600;
   color: rgba(255,255,255,0.85);
-  width: 3em;
-  text-align: right;
   flex-shrink: 0;
 }
-.sdr-sleep {
-  font-size: clamp(0.6rem, 0.85vw, 0.72rem);
+.sdr-status {
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.07em;
+  border-radius: 3px;
+  padding: 0.12em 0.5em;
   margin-left: auto;
-}
-.sdr-tbar {
-  flex: 1;
-  height: 4px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.sdr-dot {
-  font-size: 0.55rem;
   flex-shrink: 0;
-  line-height: 1;
 }
-.sdr-dot-ok   { color: #4caf50; }
-.sdr-dot-fail { color: #f44336; }
+.sdr-status-ok {
+  background: rgba(76,175,80,0.18);
+  color: #4caf50;
+  border: 1px solid rgba(76,175,80,0.35);
+}
+.sdr-status-fail {
+  background: rgba(244,67,54,0.2);
+  color: #f44336;
+  border: 1px solid rgba(244,67,54,0.4);
+}
 .sdr-realloc {
   font-size: 0.6rem;
   color: #ffb300;
