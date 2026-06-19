@@ -31,5 +31,24 @@
   },
   "neon-tech": {
     "type": "neon-tech"
+  },
+  "cinema": {
+    "type": "color",
+    "value": "linear-gradient(160deg, #0a0305 0%, #1a0608 40%, #0d0204 70%, #050101 100%)"
+  },
+  "starfield": {
+    "type": "starfield"
+  },
+  "lava-lamp": {
+    "type": "lava-lamp"
+  },
+  "aurora-rose": {
+    "type": "aurora-rose"
+  },
+  "deep-ocean": {
+    "type": "deep-ocean"
+  },
+  "ember-rise": {
+    "type": "ember-rise"
   }
 }

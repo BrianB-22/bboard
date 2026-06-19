@@ -1,4 +1,4 @@
-import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams, fetchStocks } from './api.js';
+import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams, fetchStocks, fetchMovies, fetchJellyfin } from './api.js';
 import {
   renderClock, renderAQI, renderAlerts, renderIframe, renderImage,
   renderWeatherCurrent, renderWeatherHourly, renderWeatherDaily,
@@ -9,6 +9,8 @@ import {
   renderServerStats, renderServerStorage,
   renderServerHardware, renderServerDrives, renderServerUPS, renderServerLoad, renderServerDocker,
   renderStockTicker, renderStockCountdown, renderStockCharts,
+  renderMovieTheaters, renderMovieStreaming,
+  renderJellyfinMovies, renderJellyfinShows,
 } from './widgets.js';
 
 let config = null;
@@ -126,6 +128,107 @@ function buildBackground(pageEl, bg) {
     const scan = document.createElement('div');
     scan.className = 'neon-scanlines';
     wrap.appendChild(scan);
+    pageEl.appendChild(wrap);
+    return;
+  }
+
+  if (bg.type === 'starfield') {
+    const wrap = document.createElement('div');
+    wrap.className = 'page-bg-stars';
+    [
+      { count: 130, size: '1px',   cls: 'stars-l1' },
+      { count:  65, size: '2px',   cls: 'stars-l2' },
+      { count:  28, size: '2.5px', cls: 'stars-l3' },
+    ].forEach(({ count, size, cls }) => {
+      const layer = document.createElement('div');
+      layer.className = `stars-layer ${cls}`;
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const lo  = (Math.random() * 0.2  + 0.04).toFixed(2);
+        const hi  = (Math.random() * 0.55 + 0.40).toFixed(2);
+        const dur = (Math.random() * 4    + 1.5 ).toFixed(1);
+        const del = (Math.random() * 10         ).toFixed(1);
+        s.style.cssText = `--lo:${lo};--hi:${hi};--tw-dur:${dur}s;left:${(Math.random()*106-3).toFixed(1)}%;top:${(Math.random()*106-3).toFixed(1)}%;width:${size};height:${size};animation-delay:-${del}s;`;
+        layer.appendChild(s);
+      }
+      wrap.appendChild(layer);
+    });
+    pageEl.appendChild(wrap);
+    return;
+  }
+
+  if (bg.type === 'lava-lamp') {
+    const wrap = document.createElement('div');
+    wrap.className = 'page-bg-lava';
+    [
+      { color: 'rgba(180,20,0,0.60)',  cls: 'lava-b1', style: 'left:15%;top:55%;width:55%;height:58%;' },
+      { color: 'rgba(255,75,0,0.50)',  cls: 'lava-b2', style: 'left:48%;top:28%;width:58%;height:52%;' },
+      { color: 'rgba(200,45,0,0.48)',  cls: 'lava-b3', style: 'left:-8%;top:38%;width:50%;height:50%;' },
+      { color: 'rgba(255,135,0,0.38)', cls: 'lava-b4', style: 'left:32%;top:68%;width:44%;height:44%;' },
+      { color: 'rgba(110,8,0,0.58)',   cls: 'lava-b5', style: 'left:62%;top:50%;width:50%;height:54%;' },
+    ].forEach(({ color, cls, style }) => {
+      const blob = document.createElement('div');
+      blob.className = `lava-blob ${cls}`;
+      blob.style.cssText = `background:${color};${style}`;
+      wrap.appendChild(blob);
+    });
+    pageEl.appendChild(wrap);
+    return;
+  }
+
+  if (bg.type === 'aurora-rose') {
+    const wrap = document.createElement('div');
+    wrap.className = 'page-bg-aurora page-bg-aurora-rose';
+    [
+      { cx: '25%', cy: '52%', rx: '80%', ry: '48%', color: 'rgba(255,50,110,0.55)',  anim: 'aurora1' },
+      { cx: '75%', cy: '46%', rx: '72%', ry: '42%', color: 'rgba(90,0,200,0.50)',    anim: 'aurora2' },
+      { cx: '10%', cy: '58%', rx: '65%', ry: '38%', color: 'rgba(255,190,0,0.38)',   anim: 'aurora3' },
+      { cx: '82%', cy: '62%', rx: '60%', ry: '35%', color: 'rgba(210,25,170,0.44)',  anim: 'aurora4' },
+    ].forEach(b => {
+      const blob = document.createElement('div');
+      blob.className = `aurora-blob aurora-${b.anim}`;
+      blob.style.cssText = `left:${b.cx};top:${b.cy};width:${b.rx};height:${b.ry};background:${b.color};`;
+      wrap.appendChild(blob);
+    });
+    pageEl.appendChild(wrap);
+    return;
+  }
+
+  if (bg.type === 'deep-ocean') {
+    const wrap = document.createElement('div');
+    wrap.className = 'page-bg-ocean';
+    [
+      { color: 'rgba(0,200,175,0.26)',  cls: 'ocean-b1', style: 'left:18%;top:28%;width:72%;height:62%;' },
+      { color: 'rgba(0,90,210,0.30)',   cls: 'ocean-b2', style: 'left:-12%;top:48%;width:65%;height:58%;' },
+      { color: 'rgba(0,220,195,0.18)',  cls: 'ocean-b3', style: 'left:52%;top:18%;width:62%;height:52%;' },
+      { color: 'rgba(25,75,185,0.25)',  cls: 'ocean-b4', style: 'left:28%;top:62%;width:58%;height:50%;' },
+    ].forEach(({ color, cls, style }) => {
+      const blob = document.createElement('div');
+      blob.className = `ocean-blob ${cls}`;
+      blob.style.cssText = `background:${color};${style}`;
+      wrap.appendChild(blob);
+    });
+    pageEl.appendChild(wrap);
+    return;
+  }
+
+  if (bg.type === 'ember-rise') {
+    const wrap = document.createElement('div');
+    wrap.className = 'page-bg-ember';
+    const colors = ['#ff2000','#ff4400','#ff6600','#ff8c00','#ffaa00','#ffd000','#fff3a0'];
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('div');
+      p.className = 'ember-particle';
+      const size  = (Math.random() * 2.5 + 1.2).toFixed(1);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const x     = (Math.random() * 100).toFixed(1);
+      const dur   = (Math.random() * 12 + 9).toFixed(1);
+      const del   = (Math.random() * 20).toFixed(1);
+      const drift = ((Math.random() - 0.5) * 80).toFixed(0);
+      p.style.cssText = `--drift:${drift}px;left:${x}%;width:${size}px;height:${size}px;background:${color};box-shadow:0 0 5px 1px ${color};animation-duration:${dur}s;animation-delay:-${del}s;`;
+      wrap.appendChild(p);
+    }
     pageEl.appendChild(wrap);
     return;
   }
@@ -559,6 +662,50 @@ async function mountWidget(widgetCfg) {
       }
       await loadStockCharts();
       setInterval(loadStockCharts, 60 * 1000);
+      break;
+    }
+
+    case 'jellyfin-movies': {
+      async function loadJellyfinMovies() {
+        const d = await fetchJellyfin().catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderJellyfinMovies(el, d);
+      }
+      await loadJellyfinMovies();
+      setInterval(loadJellyfinMovies, 30 * 60 * 1000);
+      break;
+    }
+
+    case 'jellyfin-shows': {
+      async function loadJellyfinShows() {
+        const d = await fetchJellyfin().catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderJellyfinShows(el, d);
+      }
+      await loadJellyfinShows();
+      setInterval(loadJellyfinShows, 30 * 60 * 1000);
+      break;
+    }
+
+    case 'movie-theaters': {
+      async function loadMovieTheaters() {
+        const d = await fetchMovies().catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderMovieTheaters(el, d);
+      }
+      await loadMovieTheaters();
+      setInterval(loadMovieTheaters, 4 * 60 * 60 * 1000);
+      break;
+    }
+
+    case 'movie-streaming': {
+      async function loadMovieStreaming() {
+        const d = await fetchMovies().catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderMovieStreaming(el, d);
+      }
+      await loadMovieStreaming();
+      setInterval(loadMovieStreaming, 4 * 60 * 60 * 1000);
       break;
     }
   }

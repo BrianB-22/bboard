@@ -1913,3 +1913,142 @@ export function renderStockCharts(el, data) {
 
   el.innerHTML = `<div class="sc-grid sc-cols-${cols}">${cards}</div>`;
 }
+
+// ─── Jellyfin ────────────────────────────────────────────────────
+function startJfScroll(el) {
+  const wrap = el.querySelector('.jf-wrap');
+  const grid = el.querySelector('.jf-grid');
+  if (!wrap || !grid) return;
+
+  function run() {
+    const overflow = grid.offsetTop + grid.scrollHeight - wrap.clientHeight;
+    if (overflow < 40) return;
+    const downMs = overflow * 55;
+
+    function scrollDown() {
+      grid.style.transition = `transform ${downMs}ms linear`;
+      grid.style.transform  = `translateY(-${overflow}px)`;
+      setTimeout(scrollUp, downMs + 2000);
+    }
+    function scrollUp() {
+      grid.style.transition = `transform ${downMs}ms linear`;
+      grid.style.transform  = `translateY(0)`;
+      setTimeout(scrollDown, downMs + 2000);
+    }
+    scrollDown();
+  }
+
+  // Wait for all images before measuring
+  const imgs = [...grid.querySelectorAll('img')];
+  if (!imgs.length) { run(); return; }
+  let pending = imgs.filter(i => !i.complete).length;
+  if (!pending) { run(); return; }
+  imgs.forEach(img => {
+    if (!img.complete) img.addEventListener('load',  () => { if (!--pending) run(); }, { once: true });
+    img.addEventListener('error', () => { if (!--pending) run(); }, { once: true });
+  });
+}
+
+function jellyfinGrid(items, imgUrl, labelFn) {
+  return items.map(item => {
+    const src = imgUrl(item);
+    const img = src
+      ? `<img class="jf-poster" src="${src}" alt="" loading="lazy">`
+      : '<div class="jf-poster jf-poster-ph"></div>';
+    return `<div class="jf-card">${img}<div class="jf-card-title">${labelFn(item)}</div></div>`;
+  }).join('');
+}
+
+export function renderJellyfinMovies(el, data) {
+  el.classList.add('widget-glass', 'widget-jellyfin');
+  if (!data || data.unavailable) {
+    el.innerHTML = '<div class="jf-unavail">Jellyfin unavailable — set JELLYFIN_API_KEY in .env</div>';
+    return;
+  }
+  const base = data.jellyfinUrl;
+  const grid = jellyfinGrid(
+    data.movies || [],
+    m => m.hasPoster ? `${base}/Items/${m.id}/Images/Primary?width=185&quality=85` : '',
+    m => m.year ? `${m.name} <span class="jf-year">${m.year}</span>` : m.name
+  );
+  el.innerHTML = `<div class="jf-wrap"><div class="jf-heading">New Movies</div><div class="jf-grid">${grid || '<div class="jf-unavail">No recent movies</div>'}</div></div>`;
+  setTimeout(() => startJfScroll(el), 800);
+}
+
+export function renderJellyfinShows(el, data) {
+  el.classList.add('widget-glass', 'widget-jellyfin');
+  if (!data || data.unavailable) {
+    el.innerHTML = '<div class="jf-unavail">Jellyfin unavailable — set JELLYFIN_API_KEY in .env</div>';
+    return;
+  }
+  const base = data.jellyfinUrl;
+  const grid = jellyfinGrid(
+    data.episodes || [],
+    e => e.seriesId ? `${base}/Items/${e.seriesId}/Images/Primary?width=185&quality=85` : '',
+    e => {
+      const badge = e.newCount > 1
+        ? `<span class="jf-year">${e.newCount} new</span>`
+        : (e.latestSeason != null && e.latestEpisode != null)
+          ? `<span class="jf-year">S${String(e.latestSeason).padStart(2,'0')}E${String(e.latestEpisode).padStart(2,'0')}</span>`
+          : '';
+      return `${e.seriesName}${badge ? ' ' + badge : ''}`;
+    }
+  );
+  el.innerHTML = `<div class="jf-wrap"><div class="jf-heading">New Episodes</div><div class="jf-grid">${grid || '<div class="jf-unavail">No recent episodes</div>'}</div></div>`;
+  setTimeout(() => startJfScroll(el), 800);
+}
+
+// ─── Movies ─────────────────────────────────────────────────────
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w92';
+
+const PROVIDER_COLORS = {
+  'Netflix':             '#e50914',
+  'Amazon Prime Video':  '#00a8e1',
+  'Disney+':             '#113ccf',
+  'Apple TV+':           '#555',
+  'Hulu':                '#1ce783',
+  'Max':                 '#002be7',
+  'Peacock':             '#f5a623',
+  'Paramount+':          '#0064ff',
+};
+
+function providerBadge(name) {
+  const short = name.replace('Amazon Prime Video', 'Prime').replace('Apple TV+', 'Apple TV+').replace('Paramount+', 'Paramount+');
+  const color = PROVIDER_COLORS[name] || '#555';
+  return `<span class="mov-provider" style="background:${color}">${short}</span>`;
+}
+
+function movieRow(m) {
+  const poster = m.poster
+    ? `<img class="mov-poster" src="${TMDB_IMG}${m.poster}" alt="" loading="lazy">`
+    : '<div class="mov-poster mov-poster-ph"></div>';
+  const stars = m.rating ? `<span class="mov-rating">★ ${m.rating.toFixed(1)}</span>` : '';
+  return `<div class="mov-row">${poster}<div class="mov-info"><span class="mov-title">${m.title}</span><div class="mov-meta">${stars}</div></div></div>`;
+}
+
+export function renderMovieTheaters(el, data) {
+  el.classList.add('widget-glass', 'widget-movie');
+  if (!data || data.unavailable) {
+    el.innerHTML = '<div class="mov-unavail">Movies unavailable — set TMDB_API_KEY in .env</div>';
+    return;
+  }
+  const rows = (data.theaters || []).map(movieRow).join('');
+  el.innerHTML = `<div class="mov-wrap"><div class="mov-heading">In Theaters</div>${rows || '<div class="mov-unavail">No listings</div>'}</div>`;
+}
+
+export function renderMovieStreaming(el, data) {
+  el.classList.add('widget-glass', 'widget-movie');
+  if (!data || data.unavailable) {
+    el.innerHTML = '<div class="mov-unavail">Movies unavailable — set TMDB_API_KEY in .env</div>';
+    return;
+  }
+  const rows = (data.streaming || []).map(m => {
+    const poster = m.poster
+      ? `<img class="mov-poster" src="${TMDB_IMG}${m.poster}" alt="" loading="lazy">`
+      : '<div class="mov-poster mov-poster-ph"></div>';
+    const stars = m.rating ? `<span class="mov-rating">★ ${m.rating.toFixed(1)}</span>` : '';
+    const badges = (m.providers || []).map(providerBadge).join('');
+    return `<div class="mov-row">${poster}<div class="mov-info"><span class="mov-title">${m.title}</span><div class="mov-meta">${stars}${badges}</div></div></div>`;
+  }).join('');
+  el.innerHTML = `<div class="mov-wrap"><div class="mov-heading">New to Streaming</div>${rows || '<div class="mov-unavail">No listings</div>'}</div>`;
+}

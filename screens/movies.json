@@ -1,0 +1,9 @@
+{
+  "id": "movies",
+  "name": "Movies",
+  "widgets": [
+    { "type": "clock", "id": "movies-clock", "style": { "top": "1%", "left": "0.5%", "width": "35%", "height": "8%" } },
+    { "type": "movie-theaters",  "id": "movies-theaters",  "style": { "top": "11%", "left": "0.5%",  "width": "48.5%", "height": "87%" } },
+    { "type": "movie-streaming", "id": "movies-streaming", "style": { "top": "11%", "left": "51%",   "width": "48.5%", "height": "87%" } }
+  ]
+}

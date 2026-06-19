@@ -827,6 +827,91 @@ app.get('/api/stocks', async (req, res) => {
   }
 });
 
+// ─── Jellyfin ───────────────────────────────────────────────────
+const JELLYFIN_URL = process.env.JELLYFIN_URL || 'http://192.168.0.75:8096';
+const JELLYFIN_KEY = process.env.JELLYFIN_API_KEY;
+let jellyfinUserId = process.env.JELLYFIN_USER_ID || null;
+let jellyfinCache = null;
+let jellyfinCacheTime = 0;
+
+async function getJellyfinUserId() {
+  if (jellyfinUserId) return jellyfinUserId;
+  const r = await fetch(`${JELLYFIN_URL}/Users?api_key=${JELLYFIN_KEY}`);
+  const users = await r.json();
+  jellyfinUserId = users[0]?.Id;
+  return jellyfinUserId;
+}
+
+app.get('/api/jellyfin/recent', async (req, res) => {
+  if (!JELLYFIN_KEY) return res.json({ unavailable: true });
+  if (jellyfinCache && Date.now() - jellyfinCacheTime < 30 * 60 * 1000) return res.json(jellyfinCache);
+  try {
+    const userId = await getJellyfinUserId();
+    const headers = { 'X-Emby-Token': JELLYFIN_KEY };
+    const fields = 'ProductionYear,DateCreated,SeriesId';
+    const [movRes, tvRes] = await Promise.all([
+      fetch(`${JELLYFIN_URL}/Users/${userId}/Items/Latest?Limit=12&IncludeItemTypes=Movie&Fields=${fields}&ImageTypeLimit=1`, { headers }),
+      fetch(`${JELLYFIN_URL}/Users/${userId}/Items/Latest?Limit=12&IncludeItemTypes=Episode&Fields=${fields}&ImageTypeLimit=1&GroupItems=false`, { headers }),
+    ]);
+    const [movies, episodes] = await Promise.all([movRes.json(), tvRes.json()]);
+    const mapMovie = m => ({ id: m.Id, name: m.Name, year: m.ProductionYear, hasPoster: !!m.ImageTags?.Primary });
+
+    // Deduplicate episodes by series — one card per show, count new episodes
+    const seriesMap = {};
+    for (const e of (episodes || [])) {
+      const sid = e.SeriesId || e.Id;
+      if (!seriesMap[sid]) {
+        seriesMap[sid] = { id: e.Id, seriesId: e.SeriesId, seriesName: e.SeriesName || e.Name, hasPoster: !!e.ImageTags?.Primary || !!e.SeriesId, newCount: 0, latestSeason: e.ParentIndexNumber, latestEpisode: e.IndexNumber };
+      }
+      seriesMap[sid].newCount++;
+    }
+    const dedupedEpisodes = Object.values(seriesMap).slice(0, 12);
+
+    jellyfinCache = { movies: (movies||[]).map(mapMovie), episodes: dedupedEpisodes, jellyfinUrl: JELLYFIN_URL, fetchedAt: new Date().toISOString() };
+    jellyfinCacheTime = Date.now();
+    res.json(jellyfinCache);
+  } catch (e) { res.status(500).json({ error: 'Jellyfin fetch failed', detail: e.message }); }
+});
+
+// ─── Movies (TMDB) ──────────────────────────────────────────────
+const TMDB_KEY = process.env.TMDB_API_KEY;
+let moviesCache = null;
+let moviesCacheTime = 0;
+const TMDB = 'https://api.themoviedb.org/3';
+
+app.get('/api/movies', async (req, res) => {
+  if (!TMDB_KEY) return res.json({ unavailable: true });
+  if (moviesCache && Date.now() - moviesCacheTime < 4 * 60 * 60 * 1000) {
+    return res.json(moviesCache);
+  }
+  try {
+    const [theaterRes, streamRes] = await Promise.all([
+      fetch(`${TMDB}/movie/now_playing?api_key=${TMDB_KEY}&language=en-US&region=US`),
+      fetch(`${TMDB}/discover/movie?api_key=${TMDB_KEY}&language=en-US&watch_region=US&with_watch_monetization_types=flatrate&sort_by=primary_release_date.desc&primary_release_date.gte=${new Date(Date.now() - 90*86400000).toISOString().slice(0,10)}`),
+    ]);
+    const [theaterData, streamData] = await Promise.all([theaterRes.json(), streamRes.json()]);
+
+    const mapMovie = m => ({ id: m.id, title: m.title, poster: m.poster_path, rating: m.vote_average, releaseDate: m.release_date });
+    const theaters = (theaterData.results || []).slice(0, 10).map(mapMovie);
+
+    const streamMovies = (streamData.results || []).slice(0, 10);
+    const streaming = await Promise.all(streamMovies.map(async m => {
+      try {
+        const pvRes = await fetch(`${TMDB}/movie/${m.id}/watch/providers?api_key=${TMDB_KEY}`);
+        const pvData = await pvRes.json();
+        const flatrate = pvData.results?.US?.flatrate || [];
+        return { ...mapMovie(m), providers: flatrate.slice(0, 2).map(p => p.provider_name) };
+      } catch { return { ...mapMovie(m), providers: [] }; }
+    }));
+
+    moviesCache = { theaters, streaming, fetchedAt: new Date().toISOString() };
+    moviesCacheTime = Date.now();
+    res.json(moviesCache);
+  } catch (e) {
+    res.status(500).json({ error: 'Movies fetch failed', detail: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`bboard running at http://localhost:${PORT}`);
 });

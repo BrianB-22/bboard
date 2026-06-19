@@ -68,3 +68,13 @@ export async function fetchStocks() {
   const r = await fetch('/api/stocks');
   return r.json();
 }
+
+export async function fetchMovies() {
+  const r = await fetch('/api/movies');
+  return r.json();
+}
+
+export async function fetchJellyfin() {
+  const r = await fetch('/api/jellyfin/recent');
+  return r.json();
+}
