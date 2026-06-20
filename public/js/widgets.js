@@ -650,32 +650,131 @@ export function renderJSON(el, data, cfg) {
 }
 
 // ─── Calendar Widget ─────────────────────────────────────────────
+const CAL_COLORS = ['#60c8ff', '#7dd87d', '#ffb347', '#d97bff', '#ff8c8c', '#ffd166'];
+function calColor(label) {
+  if (!label) return 'rgba(255,255,255,0.3)';
+  let h = 0;
+  for (const c of label) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+  return CAL_COLORS[h % CAL_COLORS.length];
+}
+
 export function renderCalendar(el, data, cfg) {
   el.classList.add('widget-glass', 'widget-calendar');
-  const title = cfg.title || '📅 Calendar';
+  const title = cfg.title || 'Calendar';
+  const numDays = cfg.days ?? null;
 
-  if (!data || data.error || !data.events?.length) {
+  if (!data || data.error) {
     el.innerHTML = `<div class="cal-title">${title}</div><div class="cal-empty">No upcoming events</div>`;
     return;
   }
 
-  const count = cfg.count || 5;
-  const events = data.events.slice(0, count);
+  if (numDays != null && numDays <= 7) {
+    // Column layout: one column per day, today always leftmost and highlighted
+    const todayBase = new Date();
+    todayBase.setHours(0, 0, 0, 0);
+    const days = Array.from({ length: numDays }, (_, i) => {
+      const d = new Date(todayBase);
+      d.setDate(todayBase.getDate() + i);
+      return { date: d, dateStr: d.toDateString(), events: [] };
+    });
+
+    for (const e of (data.events || [])) {
+      const eStart = new Date(e.start);
+      const eEnd = e.end ? new Date(e.end) : null;
+      const eStartDay = eStart.toDateString();
+      for (const day of days) {
+        const dayEnd = new Date(day.date.getTime() + 86400000);
+        const startsOnOrBefore = eStart < dayEnd;
+        // No end → single-day event, only show on its start day
+        const endsOnOrAfter = eEnd ? eEnd > day.date : eStartDay === day.dateStr;
+        if (startsOnOrBefore && endsOnOrAfter) day.events.push(e);
+      }
+    }
+
+    const cols = days.map((day, i) => {
+      const isToday = i === 0;
+      const dayLabel = isToday ? 'Today'
+        : day.date.toLocaleDateString('en-US', { weekday: 'long' });
+      const dateLabel = day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      const evtHtml = day.events.length ? day.events.map(e => {
+        const fmt = t => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const timeStr = e.allDay ? 'All day'
+          : e.end ? `${fmt(e.start)} – ${fmt(e.end)}` : fmt(e.start);
+        const color = calColor(e.calendar);
+        const label = e.calendar
+          ? `<span class="cal-label" style="--cal-color:${color}">${e.calendar}</span>`
+          : '';
+        const loc = e.location || '';
+        const locLow = loc.toLowerCase();
+        const meetingBadge = !e.allDay && loc
+          ? locLow.includes('microsoft teams')
+            ? `<span class="cal-meeting-badge cal-badge-teams">TEAMS</span>`
+            : locLow.includes('zoom.us')
+            ? `<span class="cal-meeting-badge cal-badge-zoom">ZOOM</span>`
+            : `<span class="cal-meeting-badge cal-badge-conf">CONF</span>`
+          : '';
+        return `<div class="cal-event" style="border-left-color:${color}">
+          <div class="cal-meta"><span class="cal-time">${timeStr}</span><span class="cal-badges">${label}${meetingBadge}</span></div>
+          <div class="cal-summary">${e.summary}</div>
+        </div>`;
+      }).join('') : `<div class="cal-col-empty">No events</div>`;
+
+      return `<div class="cal-col${isToday ? ' cal-col-today' : ''}">
+        <div class="cal-col-header">
+          <div class="cal-col-dayname">${dayLabel}</div>
+          <div class="cal-col-date">${dateLabel}</div>
+        </div>
+        <div class="cal-col-events">${evtHtml}</div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="cal-title">${title}</div>
+      <div class="cal-columns">${cols}</div>
+    `;
+    return;
+  }
+
+  // Vertical layout (no day limit)
+  if (!data.events?.length) {
+    el.innerHTML = `<div class="cal-title">${title}</div><div class="cal-empty">No upcoming events</div>`;
+    return;
+  }
+
+  const events = data.events.slice(0, cfg.count || 30);
+  const todayStr    = new Date().toDateString();
+  const tomorrowStr = new Date(Date.now() + 86400000).toDateString();
+  const groups = {};
+  for (const e of events) {
+    const key = new Date(e.start).toDateString();
+    (groups[key] = groups[key] || []).push(e);
+  }
+
+  const groupHtml = Object.entries(groups).map(([key, evts]) => {
+    const dayLabel = key === todayStr ? 'Today'
+      : key === tomorrowStr ? 'Tomorrow'
+      : new Date(evts[0].start).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+    const evtHtml = evts.map(e => {
+      const timeStr = e.allDay ? 'All day'
+        : new Date(e.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const color = calColor(e.calendar);
+      const label = e.calendar
+        ? `<span class="cal-label" style="--cal-color:${color}">${e.calendar}</span>`
+        : '';
+      return `<div class="cal-event${key === todayStr ? ' cal-today' : ''}" style="border-left-color:${color}">
+        <div class="cal-meta"><span class="cal-time">${timeStr}</span>${label}</div>
+        <div class="cal-summary">${e.summary}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="cal-day-group"><div class="cal-day-header">${dayLabel}</div>${evtHtml}</div>`;
+  }).join('');
 
   el.innerHTML = `
     <div class="cal-title">${title}</div>
-    <div class="cal-events">
-      ${events.map(e => {
-        const d = new Date(e.start);
-        const isToday = new Date().toDateString() === d.toDateString();
-        const dateStr = isToday ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        const timeStr = e.allDay ? 'All day' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        return `<div class="cal-event ${isToday ? 'cal-today' : ''}">
-          <div class="cal-meta"><span class="cal-date">${dateStr}</span><span class="cal-time">${timeStr}</span></div>
-          <div class="cal-summary">${e.summary}</div>
-        </div>`;
-      }).join('')}
-    </div>
+    <div class="cal-events">${groupHtml || '<div class="cal-empty">No upcoming events</div>'}</div>
   `;
 }
 

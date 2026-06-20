@@ -39,8 +39,15 @@ export async function fetchRSS(url) {
   return r.json();
 }
 
-export async function fetchCalendar(url) {
-  const r = await fetch(`/api/ical?url=${encodeURIComponent(url)}`);
+export async function fetchCalendar(urls) {
+  const list = Array.isArray(urls) ? urls : [urls];
+  const params = list.map(u => `url=${encodeURIComponent(u)}`).join('&');
+  const r = await fetch(`/api/ical?${params}`);
+  return r.json();
+}
+
+export async function fetchCalendars() {
+  const r = await fetch('/api/calendars');
   return r.json();
 }
 

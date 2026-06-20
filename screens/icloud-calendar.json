@@ -1,0 +1,24 @@
+{
+  "id": "icloud-calendar",
+  "name": "iCloud Calendar",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "ical-clock",
+      "style": { "top": "1%", "left": "0.5%", "width": "22%", "height": "11%" }
+    },
+    {
+      "type": "astro-info",
+      "id": "ical-astro",
+      "style": { "top": "1%", "left": "23.5%", "width": "76%", "height": "11%" }
+    },
+    {
+      "type": "calendar",
+      "id": "ical-main",
+      "title": "Next 3 Days",
+      "days": 3,
+      "refresh": 900,
+      "style": { "top": "14%", "left": "0.5%", "width": "99%", "height": "85%" }
+    }
+  ]
+}

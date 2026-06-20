@@ -1,4 +1,4 @@
-import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams, fetchStocks, fetchMovies, fetchJellyfin } from './api.js';
+import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchCalendars, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams, fetchStocks, fetchMovies, fetchJellyfin } from './api.js';
 import {
   renderClock, renderAQI, renderAlerts, renderIframe, renderImage,
   renderWeatherCurrent, renderWeatherHourly, renderWeatherDaily,
@@ -463,10 +463,12 @@ async function mountWidget(widgetCfg) {
     }
 
     case 'calendar': {
-      const d = await fetchCalendar(widgetCfg.url).catch(() => null);
+      const calUrls = widgetCfg.urls || (widgetCfg.url ? [widgetCfg.url] : []);
+      const fetcher = calUrls.length ? () => fetchCalendar(calUrls) : () => fetchCalendars();
+      const d = await fetcher().catch(() => null);
       renderCalendar(el, d, widgetCfg);
       setInterval(async () => {
-        const nd = await fetchCalendar(widgetCfg.url).catch(() => null);
+        const nd = await fetcher().catch(() => null);
         el.innerHTML = '';
         el.className = 'widget';
         renderCalendar(el, nd, widgetCfg);

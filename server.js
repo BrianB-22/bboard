@@ -300,17 +300,44 @@ app.get('/api/json-fetch', async (req, res) => {
   }
 });
 
-// ICS/iCal calendar parser
+// ICS/iCal calendar parser — supports one or more url params, events merged and sorted
 app.get('/api/ical', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'url required' });
+  const urls = Array.isArray(req.query.url) ? req.query.url : (req.query.url ? [req.query.url] : []);
+  if (!urls.length) return res.status(400).json({ error: 'url required' });
   try {
-    const r = await fetch(url, { headers: { 'User-Agent': 'bboard-dashboard' } });
-    const text = await r.text();
-    res.json({ events: parseICS(text) });
+    const results = await Promise.all(urls.map(async url => {
+      const r = await fetch(url, { headers: { 'User-Agent': 'bboard-dashboard' } });
+      const text = await r.text();
+      return parseICS(text);
+    }));
+    const events = results.flat().sort((a, b) => new Date(a.start) - new Date(b.start));
+    res.json({ events });
   } catch (e) {
     res.status(500).json({ error: 'iCal fetch failed', detail: e.message });
   }
+});
+
+// Configured calendar feeds from .env (ICAL_1_URL/ICAL_1_LABEL, ICAL_2_URL/ICAL_2_LABEL, ...)
+app.get('/api/calendars', async (req, res) => {
+  const feeds = [];
+  for (let n = 1; ; n++) {
+    const url = process.env[`ICAL_${n}_URL`];
+    if (!url) break;
+    feeds.push({ url, label: process.env[`ICAL_${n}_LABEL`] || `Calendar ${n}` });
+  }
+  if (!feeds.length) return res.json({ events: [], noFeeds: true });
+  const results = await Promise.all(feeds.map(async ({ url, label }) => {
+    try {
+      const r = await fetch(url, { headers: { 'User-Agent': 'bboard-dashboard' }, signal: AbortSignal.timeout(10000) });
+      const text = await r.text();
+      return parseICS(text).map(e => ({ ...e, calendar: label }));
+    } catch (e) {
+      console.warn(`[calendars] feed "${label}" failed:`, e.message);
+      return [];
+    }
+  }));
+  const events = results.flat().sort((a, b) => new Date(a.start) - new Date(b.start));
+  res.json({ events });
 });
 
 function parseICSDate(str) {
@@ -328,32 +355,127 @@ function parseICSDate(str) {
   return null;
 }
 
+// For DTEND of all-day events: iCal uses exclusive end (day after last day), so parse as midnight
+function parseICSDateEnd(str) {
+  str = str.replace(/^TZID=[^:]+:/, '');
+  if (str.length === 8) {
+    return new Date(`${str.slice(0,4)}-${str.slice(4,6)}-${str.slice(6,8)}T00:00:00`);
+  }
+  return parseICSDate(str);
+}
+
+// Expand FREQ=YEARLY recurring events into concrete occurrences within [windowStart, windowEnd]
+function expandYearlyRRule(dtstart, rrule, windowStart, windowEnd) {
+  const parts = {};
+  for (const seg of rrule.split(';')) {
+    const eq = seg.indexOf('=');
+    if (eq > 0) parts[seg.slice(0, eq)] = seg.slice(eq + 1);
+  }
+
+  const count  = parts.COUNT    ? parseInt(parts.COUNT)    : 20;
+  const byMonth = parts.BYMONTH ? parseInt(parts.BYMONTH)  : null;
+  const byDay   = parts.BYDAY   || null; // e.g. "3SU", "2MO", "-1FR"
+  const DOW = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+
+  const results = [];
+  let year = dtstart.getFullYear();
+
+  for (let i = 0; i < count; i++, year++) {
+    let d;
+
+    if (byDay && byMonth) {
+      const n = parseInt(byDay);
+      const dowStr = byDay.replace(/^-?\d+/, '');
+      const targetDow = DOW[dowStr];
+      const month = byMonth - 1;
+
+      if (n > 0) {
+        const first = new Date(year, month, 1);
+        const diff = (targetDow - first.getDay() + 7) % 7;
+        d = new Date(year, month, 1 + diff + (n - 1) * 7);
+      } else {
+        // Negative: count from end of month (-1 = last occurrence)
+        const last = new Date(year, month + 1, 0);
+        const diff = (last.getDay() - targetDow + 7) % 7;
+        d = new Date(year, month, last.getDate() - diff + (n + 1) * 7);
+      }
+    } else if (byMonth) {
+      d = new Date(year, byMonth - 1, dtstart.getDate());
+    } else {
+      d = new Date(year, dtstart.getMonth(), dtstart.getDate());
+    }
+
+    d.setHours(dtstart.getHours(), dtstart.getMinutes(), dtstart.getSeconds(), 0);
+
+    if (d > windowEnd) break;
+    if (d >= windowStart) results.push(d);
+  }
+
+  return results;
+}
+
 function parseICS(text) {
   const now = new Date();
-  const cutoff = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
+  // Start of today — keep all events from today onward, including past times today
+  const cutoff = new Date(now);
+  cutoff.setHours(0, 0, 0, 0);
+  // Expand RRULEs up to 90 days ahead so any calendar widget range is covered
+  const windowEnd = new Date(cutoff.getTime() + 90 * 86400000);
   const events = [];
 
-  for (const match of text.matchAll(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/g)) {
-    const block = match[1];
-    const get = (name) => {
-      const m = block.match(new RegExp(`${name}[^:]*:([^\r\n]+)`));
-      return m ? m[1].trim().replace(/\\,/g, ',').replace(/\\n/g, ' ') : '';
-    };
+  // Unfold ICS line continuations (CRLF + whitespace = line fold)
+  const unfolded = text.replace(/\r?\n[ \t]/g, '');
 
-    const summary = get('SUMMARY');
-    const dtstart = get('DTSTART');
-    if (!summary || !dtstart) continue;
+  for (const match of unfolded.matchAll(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/g)) {
+    try {
+      const block = match[1];
+      const get = (name) => {
+        const m = block.match(new RegExp(`${name}[^:]*:([^\r\n]+)`));
+        return m ? m[1].trim().replace(/\\,/g, ',').replace(/\\n/g, ' ') : '';
+      };
 
-    const start = parseICSDate(dtstart);
-    if (!start || start < cutoff) continue;
+      const summary = get('SUMMARY');
+      const dtstart = get('DTSTART');
+      if (!summary || !dtstart) continue;
 
-    events.push({
-      summary,
-      location: get('LOCATION'),
-      description: get('DESCRIPTION'),
-      start: start.toISOString(),
-      allDay: !dtstart.includes('T'),
-    });
+      const start = parseICSDate(dtstart);
+      if (!start || isNaN(start.getTime())) continue;
+
+      const dtend  = get('DTEND');
+      const end    = dtend ? parseICSDateEnd(dtend) : null;
+      const allDay = !dtstart.includes('T');
+      const rrule  = get('RRULE');
+
+      if (rrule && rrule.includes('FREQ=YEARLY')) {
+        // Expand recurring yearly events into individual occurrences within window
+        const duration = end && !isNaN(end.getTime()) ? (end - start) : 0;
+        for (const occ of expandYearlyRRule(start, rrule, cutoff, windowEnd)) {
+          if (isNaN(occ.getTime())) continue;
+          const occEnd = duration > 0 ? new Date(occ.getTime() + duration) : null;
+          events.push({
+            summary,
+            location: get('LOCATION'),
+            description: get('DESCRIPTION'),
+            start: occ.toISOString(),
+            end: occEnd ? occEnd.toISOString() : null,
+            allDay,
+          });
+        }
+      } else {
+        // Single (or unhandled recurrence) — keep if active today or later
+        if (start < cutoff && (!end || end <= cutoff)) continue;
+        events.push({
+          summary,
+          location: get('LOCATION'),
+          description: get('DESCRIPTION'),
+          start: start.toISOString(),
+          end: end && !isNaN(end.getTime()) ? end.toISOString() : null,
+          allDay,
+        });
+      }
+    } catch (e) {
+      // Skip individual malformed events without crashing the whole feed
+    }
   }
 
   return events.sort((a, b) => new Date(a.start) - new Date(b.start));
