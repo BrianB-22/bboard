@@ -120,12 +120,23 @@
         schedules.forEach(({ uid, desc }) => {
           const a = document.createElement('a');
           a.className = 'card';
-          a.href = `/${uid}`;
-          a.innerHTML = `
-            <div class="card-uid">${uid}</div>
-            <div class="card-desc">${desc}</div>
-            <div class="card-arrow">Open display →</div>
-          `;
+          a.href = `/${encodeURIComponent(uid)}`;
+
+          const uidEl = document.createElement('div');
+          uidEl.className = 'card-uid';
+          uidEl.textContent = uid;
+
+          const descEl = document.createElement('div');
+          descEl.className = 'card-desc';
+          descEl.textContent = desc;
+
+          const arrowEl = document.createElement('div');
+          arrowEl.className = 'card-arrow';
+          arrowEl.textContent = 'Open display →';
+
+          a.appendChild(uidEl);
+          a.appendChild(descEl);
+          a.appendChild(arrowEl);
           grid.appendChild(a);
         });
       } catch (e) {

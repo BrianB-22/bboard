@@ -28,10 +28,48 @@ function readJSON(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+// ─── Orchestrator helpers ─────────────────────────────────────────
+const ORCH_PATH = join(__dirname, 'orchestrator.json');
+const SAFE_SCREEN_NAME = /^[A-Za-z0-9_-]+$/;
+
+// Seed a default if missing (first deploy to a clean server)
+if (!existsSync(ORCH_PATH)) {
+  writeFileSync(ORCH_PATH, JSON.stringify({
+    schedules: [{
+      uid: 'S_100', desc: 'MainLoop',
+      site: { title: 'bboard', location: { lat: 0, lon: 0, name: '' }, showScreenIndicator: true },
+      pages: [],
+    }]
+  }, null, 2));
+  console.log('Created default orchestrator.json');
+}
+
+let _orchCache = null;
+
+function readOrchestrator() {
+  if (!_orchCache) _orchCache = readJSON(ORCH_PATH);
+  return _orchCache;
+}
+
+function writeOrchestrator(data) {
+  writeFileSync(ORCH_PATH, JSON.stringify(data, null, 2));
+  _orchCache = data;
+}
+
+function findSchedule(orchestrator, uid) {
+  return (uid ? orchestrator.schedules.find(s => s.uid === uid) : orchestrator.schedules[0]) ?? null;
+}
+
+function requireSchedule(res, orchestrator, uid) {
+  const s = findSchedule(orchestrator, uid);
+  if (!s) res.status(404).json({ error: 'Schedule not found' });
+  return s;
+}
+
 // List all schedules (uid + desc only)
 app.get('/api/schedules', (req, res) => {
   try {
-    const { schedules } = readJSON(join(__dirname, 'orchestrator.json'));
+    const { schedules } = readOrchestrator();
     res.json(schedules.map(({ uid, desc }) => ({ uid, desc })));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -42,12 +80,9 @@ app.get('/api/schedules', (req, res) => {
 app.get('/api/config', (req, res) => {
   try {
     const { uid } = req.query;
-    const orchestrator = readJSON(join(__dirname, 'orchestrator.json'));
-    const schedule = uid
-      ? orchestrator.schedules.find(s => s.uid === uid)
-      : orchestrator.schedules[0];
-
-    if (!schedule) return res.status(404).json({ error: 'Schedule not found' });
+    const orchestrator = readOrchestrator();
+    const schedule = requireSchedule(res, orchestrator, uid);
+    if (!schedule) return;
 
     const backgrounds = readJSON(join(__dirname, 'backgrounds.json'));
 
@@ -69,7 +104,7 @@ app.get('/api/config', (req, res) => {
       .filter(Boolean);
 
     const configFiles = [
-      join(__dirname, 'orchestrator.json'),
+      ORCH_PATH,
       join(__dirname, 'backgrounds.json'),
       join(__dirname, 'public', 'index.html'),
       ...readdirSync(join(__dirname, 'screens')).map(f => join(__dirname, 'screens', f)),
@@ -725,11 +760,9 @@ app.get('/admin', (req, res) => {
 app.get('/api/admin/data', (req, res) => {
   try {
     const { uid } = req.query;
-    const orchestrator = readJSON(join(__dirname, 'orchestrator.json'));
-    const schedule = uid
-      ? orchestrator.schedules.find(s => s.uid === uid)
-      : orchestrator.schedules[0];
-    if (!schedule) return res.status(404).json({ error: 'Schedule not found' });
+    const orchestrator = readOrchestrator();
+    const schedule = requireSchedule(res, orchestrator, uid);
+    if (!schedule) return;
 
     const backgrounds = Object.keys(readJSON(join(__dirname, 'backgrounds.json')));
     const allFiles = readdirSync(join(__dirname, 'screens'));
@@ -744,14 +777,17 @@ app.get('/api/admin/data', (req, res) => {
 app.post('/api/admin/config', (req, res) => {
   try {
     const { uid, site, pages, deleteScreens = [] } = req.body;
-    const orchestrator = readJSON(join(__dirname, 'orchestrator.json'));
+    const orchestrator = readOrchestrator();
     const idx = orchestrator.schedules.findIndex(s => s.uid === uid);
     if (idx === -1) return res.status(404).json({ error: 'Schedule not found' });
     orchestrator.schedules[idx] = { ...orchestrator.schedules[idx], site, pages };
-    writeFileSync(join(__dirname, 'orchestrator.json'), JSON.stringify(orchestrator, null, 2));
-    const remainingScreens = new Set(pages.map(p => p.screen));
+    writeOrchestrator(orchestrator);
+
+    // Only delete a screen file if no schedule anywhere still references it
+    const allScreensInUse = new Set(orchestrator.schedules.flatMap(s => s.pages.map(p => p.screen)));
     for (const name of deleteScreens) {
-      if (remainingScreens.has(name)) continue;
+      if (!SAFE_SCREEN_NAME.test(name)) continue;   // path traversal guard
+      if (allScreensInUse.has(name)) continue;       // still used by another schedule
       const from = join(__dirname, 'screens', `${name}.json`);
       const to   = join(__dirname, 'screens', `${name}.delete`);
       if (existsSync(from)) renameSync(from, to);
@@ -765,20 +801,21 @@ app.post('/api/admin/config', (req, res) => {
 app.post('/api/admin/schedules', (req, res) => {
   try {
     const { desc } = req.body;
-    const orchestrator = readJSON(join(__dirname, 'orchestrator.json'));
+    const orchestrator = readOrchestrator();
     const existingUids = new Set(orchestrator.schedules.map(s => s.uid));
-    let uid;
-    do { uid = String(Math.floor(Math.random() * 90000) + 10000); } while (existingUids.has(uid));
+    let n = 100;
+    while (existingUids.has(`S_${n}`)) n++;
+    const uid = `S_${n}`;
     const defaultSite = orchestrator.schedules[0]?.site ?? {
       title: 'bboard', location: { lat: 0, lon: 0, name: '' }, showScreenIndicator: true,
     };
     orchestrator.schedules.push({
       uid,
-      desc: desc || 'New Schedule',
+      desc: String(desc || '').trim() || 'New Schedule',
       site: { ...defaultSite, location: { ...defaultSite.location } },
       pages: [],
     });
-    writeFileSync(join(__dirname, 'orchestrator.json'), JSON.stringify(orchestrator, null, 2));
+    writeOrchestrator(orchestrator);
     res.json({ uid });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -788,12 +825,12 @@ app.post('/api/admin/schedules', (req, res) => {
 app.delete('/api/admin/schedules/:uid', (req, res) => {
   try {
     const { uid } = req.params;
-    const orchestrator = readJSON(join(__dirname, 'orchestrator.json'));
+    const orchestrator = readOrchestrator();
     if (orchestrator.schedules.length <= 1) return res.status(400).json({ error: 'Cannot delete the last schedule' });
     const idx = orchestrator.schedules.findIndex(s => s.uid === uid);
     if (idx === -1) return res.status(404).json({ error: 'Schedule not found' });
     orchestrator.schedules.splice(idx, 1);
-    writeFileSync(join(__dirname, 'orchestrator.json'), JSON.stringify(orchestrator, null, 2));
+    writeOrchestrator(orchestrator);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -981,10 +1018,8 @@ app.get('/api/movies', async (req, res) => {
   }
 });
 
-// UID-based board access: /10001 loads the dashboard for that schedule
-app.get('/:uid', (req, res) => {
-  const { uid } = req.params;
-  if (uid.includes('.')) return res.status(404).send('Not found');
+// UID-based board access: /S_100 loads the dashboard for that schedule
+app.get('/:uid([A-Za-z0-9_-]+)', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'index.html'));
 });
 

@@ -13,6 +13,7 @@ import {
   renderJellyfinMovies, renderJellyfinShows,
 } from './widgets.js';
 
+let uid    = null;
 let config = null;
 let pages  = [];
 let pageList = [];
@@ -903,7 +904,7 @@ function buildIndicator(count) {
 
 // ─── Init ─────────────────────────────────────────────────────────
 async function init() {
-  const uid = window.location.pathname.split('/').filter(Boolean)[0];
+  uid = window.location.pathname.split('/').filter(Boolean)[0];
   if (!uid) { window.location.href = '/'; return; }
 
   config = await fetchConfig(uid);

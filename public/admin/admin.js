@@ -8,9 +8,13 @@ let currentUid = null;
 async function loadSchedules() {
   const schedules = await fetch('/api/schedules').then(r => r.json());
   const sel = document.getElementById('schedule-sel');
-  sel.innerHTML = schedules.map(s =>
-    `<option value="${s.uid}">${s.desc} (${s.uid})</option>`
-  ).join('');
+  sel.innerHTML = '';
+  schedules.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.uid;
+    opt.textContent = `${s.desc} (${s.uid})`;
+    sel.appendChild(opt);
+  });
 
   const params = new URLSearchParams(location.search);
   const preferred = params.get('uid') || schedules[0]?.uid;
