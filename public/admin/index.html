@@ -9,8 +9,15 @@
 <body>
   <header>
     <h1>bboard <span>admin</span></h1>
-    <a href="/" class="back-link">← Dashboard</a>
+    <a id="back-link" href="/" class="back-link">← Dashboard</a>
   </header>
+
+  <div class="schedule-bar">
+    <label for="schedule-sel">Schedule</label>
+    <select id="schedule-sel" onchange="selectSchedule(this.value)"></select>
+    <button type="button" class="new-schedule-btn" onclick="newSchedule()">+ New</button>
+    <button type="button" class="del-schedule-btn" id="del-schedule-btn" onclick="deleteSchedule()">Delete</button>
+  </div>
 
   <main>
     <section class="card" id="site-section">

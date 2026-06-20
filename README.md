@@ -43,6 +43,7 @@ The server can be anything from a Raspberry Pi to a full desktop. The display ("
 - **Auto-reload.** All connected browsers reload automatically when config changes are detected on the server.
 - **Page rotation.** Cycles through screens on a configurable interval. Clickable indicator dots let you jump directly to any screen.
 - **Admin page.** Manage the schedule, backgrounds, durations, and screen order at `/admin` — no file editing required for day-to-day changes.
+- **Multi-kiosk.** Run multiple named schedules from one server. Each kiosk opens `/<uid>` to get its own independent page rotation, location, and settings. Add a second display by creating a new schedule in the admin.
 - **YoLink home automation.** First-class support for YoLink sensors: door/window, temperature, smoke, outlets, and power failure alarms. See live sensor state on the Home screen with alert banners for anything that needs attention.
 
 ## Quick start
@@ -53,7 +54,7 @@ npm start        # http://localhost:3030
 npm run dev      # auto-restarts on server changes
 ```
 
-Set your location and screen order in `schedule.json`, then open the browser. The admin page at `/admin` lets you adjust timings and backgrounds without touching files.
+The root `/` shows a schedule picker. Point each display at `/<uid>` (e.g. `/100`) to load its schedule. The admin page at `/admin` lets you manage schedules, adjust timings, backgrounds, and screen order without touching files.
 
 For production deployment to a Linux server (systemd, rsync, nvm), see [SERVERSETUP.md](SERVERSETUP.md).
 

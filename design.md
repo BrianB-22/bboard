@@ -4,21 +4,23 @@
 
 ```
 Browser
-  └─ HTTP GET /          → index.html (shell)
-  └─ HTTP GET /api/config → merged JSON (schedule + screens + backgrounds)
-  └─ HTTP GET /api/*      → proxied external APIs
-  └─ GET /css, /js        → static assets
+  └─ HTTP GET /            → pick.html (schedule picker)
+  └─ HTTP GET /:uid        → index.html (dashboard shell for that schedule)
+  └─ HTTP GET /api/schedules → list of {uid, desc}
+  └─ HTTP GET /api/config?uid= → merged JSON (schedule + screens + backgrounds)
+  └─ HTTP GET /api/*       → proxied external APIs
+  └─ GET /css, /js         → static assets
 
 Server (Node.js + Express)
-  ├─ Reads schedule.json
-  ├─ Reads screens/*.json (per active page)
+  ├─ Reads orchestrator.json (array of schedules, each with uid/desc/site/pages)
+  ├─ Reads screens/*.json (per active page in requested schedule)
   ├─ Reads backgrounds.json
-  ├─ Merges into single config object
+  ├─ Merges into single config object per schedule
   └─ Proxies all external APIs (weather, AQI, alerts, NHL, RSS, ICS, JSON, images)
 
 Config Files
-  ├─ schedule.json    ← master: active pages, background IDs, durations
-  ├─ screens/*.json   ← widget layouts (one file per page)
+  ├─ orchestrator.json    ← master: all schedules with uid, desc, site, pages
+  ├─ screens/*.json   ← widget layouts (one file per page, shared across schedules)
   └─ backgrounds.json ← named background definitions
 ```
 
@@ -27,7 +29,7 @@ Config Files
 ```
 bboard/
 ├── server.js              Express server + API routes
-├── schedule.json          Master orchestration
+├── orchestrator.json          Master orchestration
 ├── backgrounds.json       Background library
 ├── screens/               One file per page layout
 │   ├── weather.json
@@ -51,14 +53,14 @@ bboard/
 **Framework:** Express 4  
 **No build step.** No transpilation. No template engine.
 
-### Config Merge (`GET /api/config`)
+### Config Merge (`GET /api/config?uid=`)
 
 The server merges three sources at request time:
 
-1. Load `schedule.json` → get active page list
-2. For each `enabled` page, load `screens/{screen}.json`
+1. Load `orchestrator.json` → find the schedule matching `?uid=`
+2. For each `enabled` page in that schedule, load `screens/{screen}.json`
 3. Resolve the `background` string to the full object from `backgrounds.json`
-4. Return merged array of page objects to the client
+4. Return merged object `{site, pages, lastUpdated}` to the client
 
 This means changing any JSON file takes effect on the next browser reload — no restart required.
 
@@ -257,7 +259,7 @@ Foreground fill: `pct * 240°` arc in threshold-matched color.
 ## Adding a New Screen
 
 1. Create `screens/my-screen.json` with `{ "id": "...", "name": "...", "widgets": [...] }`
-2. Add to `schedule.json` pages array: `{ "screen": "my-screen", "background": "...", "duration": 300, "enabled": true }`
+2. Add to `orchestrator.json` pages array: `{ "screen": "my-screen", "background": "...", "duration": 300, "enabled": true }`
 3. Reload the browser
 
 No server restart required — config is read fresh on each `/api/config` request.

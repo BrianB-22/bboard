@@ -2,10 +2,76 @@ let state = null;   // raw data from server
 let pages = [];     // working copy of schedule.pages
 let site  = {};     // working copy of schedule.site
 let pendingDeletes = [];
+let currentUid = null;
+
+// ── Schedule management ───────────────────────────────────────────
+async function loadSchedules() {
+  const schedules = await fetch('/api/schedules').then(r => r.json());
+  const sel = document.getElementById('schedule-sel');
+  sel.innerHTML = schedules.map(s =>
+    `<option value="${s.uid}">${s.desc} (${s.uid})</option>`
+  ).join('');
+
+  const params = new URLSearchParams(location.search);
+  const preferred = params.get('uid') || schedules[0]?.uid;
+  if (preferred) sel.value = preferred;
+
+  currentUid = sel.value;
+  document.getElementById('del-schedule-btn').disabled = schedules.length <= 1;
+  updateBackLink();
+}
+
+function selectSchedule(uid) {
+  currentUid = uid;
+  updateBackLink();
+  load();
+}
+
+function updateBackLink() {
+  const link = document.getElementById('back-link');
+  if (currentUid) link.href = `/${currentUid}`;
+}
+
+async function newSchedule() {
+  const desc = prompt('Schedule description (e.g. "Kitchen Display"):');
+  if (!desc) return;
+
+  try {
+    const r = await fetch('/api/admin/schedules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ desc }),
+    });
+    const result = await r.json();
+    if (!r.ok) throw new Error(result.error);
+
+    await loadSchedules();
+    document.getElementById('schedule-sel').value = result.uid;
+    selectSchedule(result.uid);
+  } catch (e) {
+    alert('Failed to create schedule: ' + e.message);
+  }
+}
+
+async function deleteSchedule() {
+  if (!currentUid) return;
+  const label = document.getElementById('schedule-sel').options[document.getElementById('schedule-sel').selectedIndex]?.text;
+  if (!confirm(`Delete schedule "${label}"? This cannot be undone.`)) return;
+
+  try {
+    const r = await fetch(`/api/admin/schedules/${encodeURIComponent(currentUid)}`, { method: 'DELETE' });
+    const result = await r.json();
+    if (!r.ok) throw new Error(result.error);
+    await loadSchedules();
+    load();
+  } catch (e) {
+    alert('Delete failed: ' + e.message);
+  }
+}
 
 // ── Load ──────────────────────────────────────────────────────────
 async function load() {
-  const r = await fetch('/api/admin/data');
+  const r = await fetch(`/api/admin/data?uid=${encodeURIComponent(currentUid)}`);
   state = await r.json();
   pages = state.schedule.pages.map(p => ({ ...p }));
   site  = { ...state.schedule.site, location: { ...state.schedule.site.location } };
@@ -51,7 +117,7 @@ function renderPages() {
           onchange="updatePage(${i},'duration',+this.value)">
       </td>
       <td class="center">
-        <a href="/?screen=${p.screen}" target="_blank">
+        <a href="/${currentUid}?screen=${p.screen}" target="_blank">
           <button type="button" class="ghost">View</button>
         </a>
       </td>
@@ -144,7 +210,7 @@ function addPage() {
   if (!screen) return;
 
   pages.push({ screen, background: bg, duration, enabled });
-  pendingDeletes = pendingDeletes.filter(n => n !== screen); // undo any pending delete
+  pendingDeletes = pendingDeletes.filter(n => n !== screen);
   markDirty();
   renderPages();
   renderAddPage();
@@ -228,7 +294,6 @@ async function lookupPostal() {
   }
 }
 
-// Allow Enter key in postal code field to trigger lookup
 document.getElementById('postal-code').addEventListener('keydown', e => {
   if (e.key === 'Enter') lookupPostal();
 });
@@ -243,7 +308,6 @@ async function restoreScreen(name) {
 
 // ── Save ──────────────────────────────────────────────────────────
 async function save() {
-  // Capture any in-progress name edit
   site.location = site.location || {};
   site.location.name = document.getElementById('loc-name').value.trim();
   site.showScreenIndicator = document.getElementById('show-indicator').checked;
@@ -256,7 +320,7 @@ async function save() {
     const r = await fetch('/api/admin/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ site, pages, deleteScreens: pendingDeletes }),
+      body: JSON.stringify({ uid: currentUid, site, pages, deleteScreens: pendingDeletes }),
     });
     const result = await r.json();
     if (!r.ok) throw new Error(result.error);
@@ -277,4 +341,4 @@ function setDirty(val) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────
-load();
+loadSchedules().then(() => load());

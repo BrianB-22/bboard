@@ -1,5 +1,10 @@
-export async function fetchConfig() {
-  const r = await fetch('/api/config');
+export async function fetchConfig(uid) {
+  const r = await fetch(`/api/config?uid=${encodeURIComponent(uid)}`);
+  return r.json();
+}
+
+export async function fetchSchedules() {
+  const r = await fetch('/api/schedules');
   return r.json();
 }
 

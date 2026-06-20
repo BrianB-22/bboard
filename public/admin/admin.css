@@ -53,6 +53,61 @@ header h1 span {
 }
 .back-link:hover { color: var(--accent); }
 
+.schedule-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 32px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border);
+}
+
+.schedule-bar label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.schedule-bar select {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.new-schedule-btn {
+  background: rgba(79,195,247,0.12);
+  color: var(--accent);
+  border: 1px solid rgba(79,195,247,0.3);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.new-schedule-btn:hover { background: rgba(79,195,247,0.22); }
+
+.del-schedule-btn {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.del-schedule-btn:hover { background: rgba(239,68,68,0.1); }
+.del-schedule-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+
 main {
   max-width: 860px;
   margin: 32px auto;

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 24px 40px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    h1 span { color: rgba(255,255,255,0.35); font-weight: 400; }
+
+    .subtitle {
+      color: rgba(255,255,255,0.4);
+      font-size: 0.9rem;
+      margin-bottom: 48px;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    }
+
+    .card:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(255,255,255,0.22);
+      transform: translateY(-2px);
+    }
+
+    .card-uid {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.3);
+      font-family: monospace;
+    }
+
+    .card-desc {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .card-arrow {
+      margin-top: 12px;
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.35);
+    }
+
+    .card:hover .card-arrow { color: rgba(255,255,255,0.65); }
+
+    #error {
+      color: rgba(255,100,100,0.8);
+      font-size: 0.9rem;
+      margin-top: 16px;
+    }
+
+    .admin-link {
+      margin-top: 48px;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.2);
+      text-decoration: none;
+    }
+
+    .admin-link:hover { color: rgba(255,255,255,0.45); }
+  </style>
+</head>
+<body>
+  <h1>bboard <span>dashboard</span></h1>
+  <p class="subtitle">Select a display</p>
+  <div id="grid"></div>
+  <div id="error"></div>
+  <a href="/admin" class="admin-link">Admin</a>
+
+  <script>
+    async function load() {
+      try {
+        const schedules = await fetch('/api/schedules').then(r => r.json());
+        const grid = document.getElementById('grid');
+
+        if (!schedules.length) {
+          grid.innerHTML = '<p style="color:rgba(255,255,255,0.4)">No schedules configured.</p>';
+          return;
+        }
+
+        schedules.forEach(({ uid, desc }) => {
+          const a = document.createElement('a');
+          a.className = 'card';
+          a.href = `/${uid}`;
+          a.innerHTML = `
+            <div class="card-uid">${uid}</div>
+            <div class="card-desc">${desc}</div>
+            <div class="card-arrow">Open display →</div>
+          `;
+          grid.appendChild(a);
+        });
+      } catch (e) {
+        document.getElementById('error').textContent = 'Failed to load schedules: ' + e.message;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

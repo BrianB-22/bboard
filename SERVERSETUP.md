@@ -112,6 +112,6 @@ sudo systemctl status bboard
 | What changed | Action needed |
 |---|---|
 | `server.js` | `sudo systemctl restart bboard` |
-| `schedule.json` / `screens/*.json` / `backgrounds.json` | Browser refresh |
+| `orchestrator.json` / `screens/*.json` / `backgrounds.json` | Browser refresh |
 | `data/custom-dates.json` | Browser refresh |
 | `public/js/*.js` / `public/css/*.css` | Hard refresh (`Cmd+Shift+R`) |

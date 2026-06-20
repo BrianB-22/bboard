@@ -19,7 +19,7 @@ bboard is a self-hosted, full-screen dashboard web app designed for always-on di
 
 ## Pages & Rotation
 
-- Pages are defined in `schedule.json` and can be enabled or disabled individually
+- Pages are defined in `orchestrator.json` and can be enabled or disabled individually
 - Each page has a `duration` in seconds before rotating to the next
 - Pages transition with a fade animation
 - A dot indicator at the bottom shows current page; dots are clickable to jump
@@ -28,16 +28,30 @@ bboard is a self-hosted, full-screen dashboard web app designed for always-on di
 
 ---
 
+## Multi-Schedule / Multi-Kiosk
+
+`orchestrator.json` holds an array of schedules, each with a unique `uid`. Different kiosks or screens load their own schedule by visiting `/<uid>` (e.g. `http://server:3030/100`). The root `/` shows a picker listing all available schedules.
+
+Each schedule has its own `site` config (location, title, etc.) so kiosks in different locations get independent weather, alerts, and timezone data.
+
+---
+
 ## Configuration Files
 
-### `schedule.json` — Master Orchestration
-Controls which screens are active, what background they use, and how long each displays.
+### `orchestrator.json` — Master Orchestration
+Holds all schedules. Each schedule controls which screens are active, what background they use, and how long each displays.
 
 ```json
 {
-  "site": { "title": "...", "location": { "lat": 0, "lon": 0, "name": "..." } },
-  "pages": [
-    { "screen": "weather", "background": "picsum-nature", "duration": 300, "enabled": true }
+  "schedules": [
+    {
+      "uid": "100",
+      "desc": "MainLoop",
+      "site": { "title": "bboard", "location": { "lat": 0, "lon": 0, "name": "..." } },
+      "pages": [
+        { "screen": "weather", "background": "picsum-nature", "duration": 300, "enabled": true }
+      ]
+    }
   ]
 }
 ```
@@ -60,7 +74,7 @@ Each screen file defines the widget layout for one page. Widgets use percentage-
 ```
 
 ### `backgrounds.json` — Background Library
-Named background definitions referenced by ID in `schedule.json`.
+Named background definitions referenced by ID in `orchestrator.json`.
 
 ```json
 {
@@ -125,7 +139,7 @@ Displays current time (12-hour with seconds) and date.
 
 ## Widget: `weather-current`
 Shows temperature, feels-like, condition icon, wind speed, humidity, and sunset time.
-Location is inherited from `site.location` in `schedule.json`.
+Location is inherited from `site.location` in `orchestrator.json`.
 
 ---
 
@@ -179,7 +193,7 @@ Images from HTTP sources are proxied through the server to avoid mixed-content e
 
 ## Widget: `nhl-scores`
 Displays today's NHL games with scores and game state. Live games highlighted in red.
-Can be toggled off-season by disabling the hockey page in `schedule.json`.
+Can be toggled off-season by disabling the hockey page in `orchestrator.json`.
 
 ---
 

@@ -24,7 +24,7 @@
 ## Screens to Build
 
 - [ ] **Home screen** — family calendar + countdown timer + scheduled greeting + weather current
-- [ ] **Sports screen** — NHL scores + RSS sports news (toggle on/off seasonally via `schedule.json`)
+- [ ] **Sports screen** — NHL scores + RSS sports news (toggle on/off seasonally via `orchestrator.json`)
 - [ ] **System/metrics screen** — server health gauges (CPU, memory, disk) via `/api/json-fetch` from a local metrics endpoint
 - [ ] **Morning briefing screen** — sun times + weather daily + calendar events for the day
 
@@ -57,7 +57,7 @@
 
 ## Infrastructure
 
-- [ ] **Hot reload** — watch `schedule.json` / `screens/*.json` on the server and push a reload signal to connected browsers (SSE or WebSocket) so layout changes apply without manual refresh
+- [ ] **Hot reload** — watch `orchestrator.json` / `screens/*.json` on the server and push a reload signal to connected browsers (SSE or WebSocket) so layout changes apply without manual refresh
 - [ ] **Health endpoint** — `GET /api/health` returns server uptime, last weather fetch timestamp, etc.
 - [ ] **Logging** — add request logging and error logging to a file for debugging deployed server
 

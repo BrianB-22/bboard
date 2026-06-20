@@ -6,7 +6,7 @@ Reference for building screen JSON files and background definitions from scratch
 
 ## Screen JSON
 
-Every screen lives in `screens/<name>.json`. The file is referenced from `schedule.json` by its filename (without `.json`). The `id` field **must match the filename** — it is used for `?screen=<id>` direct URL navigation. Missing `id` produces "Screen not found in schedule.json" even if the file exists.
+Every screen lives in `screens/<name>.json`. The file is referenced from a schedule's `pages` array in `orchestrator.json` by its filename (without `.json`). The `id` field **must match the filename** — it is used for `?screen=<id>` direct URL navigation. Missing `id` produces "Screen not found in orchestrator.json" even if the file exists. Screens are shared across all schedules — any schedule can reference any screen file.
 
 ### Top-level structure
 
@@ -620,7 +620,7 @@ Drive pair table: `/dataN ↔ /backupN` with fill bar, used/total, backup size, 
 
 ## Backgrounds
 
-Backgrounds are defined in `backgrounds.json` and referenced by name in `schedule.json`.
+Backgrounds are defined in `backgrounds.json` and referenced by name in `orchestrator.json`.
 
 ### backgrounds.json structure
 
@@ -633,7 +633,7 @@ Backgrounds are defined in `backgrounds.json` and referenced by name in `schedul
 }
 ```
 
-The key is the background name used in `schedule.json`. The `type` field determines how it renders.
+The key is the background name used in `orchestrator.json`. The `type` field determines how it renders.
 
 ---
 
@@ -713,31 +713,46 @@ Rotating photos from [picsum.photos](https://picsum.photos/). Uses a time-bucket
 
 ---
 
-## schedule.json
+## orchestrator.json
 
-Ties backgrounds to screens and controls rotation order.
+Ties backgrounds to screens and controls rotation order. Supports multiple named schedules so different kiosks can show different content.
 
 ```json
 {
-  "site": {
-    "title": "bboard",
-    "location": {
-      "lat": 34.92,
-      "lon": -80.73,
-      "name": "City, State"
-    },
-    "showScreenIndicator": true
-  },
-  "pages": [
+  "schedules": [
     {
-      "screen": "weather",
-      "background": "animated-aurora",
-      "duration": 60,
-      "enabled": true
+      "uid": "100",
+      "desc": "MainLoop",
+      "site": {
+        "title": "bboard",
+        "location": {
+          "lat": 34.92,
+          "lon": -80.73,
+          "name": "City, State"
+        },
+        "showScreenIndicator": true
+      },
+      "pages": [
+        {
+          "screen": "weather",
+          "background": "animated-aurora",
+          "duration": 60,
+          "enabled": true
+        }
+      ]
     }
   ]
 }
 ```
+
+A kiosk loads its schedule by visiting `/<uid>` (e.g. `http://server:3030/100`). The root `/` shows a picker listing all schedules.
+
+### Schedule fields
+
+| Field | Description |
+|-------|-------------|
+| `uid` | Unique identifier used in the URL: `/<uid>`. |
+| `desc` | Human-readable name shown in the picker and admin. |
 
 ### `site` fields
 
@@ -801,13 +816,25 @@ Set `"enabled": false` on any widget to hide it without removing it from the fil
 
 ### Direct URL access
 
-Pin to a single screen by appending `?screen=<id>` to the bboard URL:
+Each kiosk loads its schedule by UID:
 
 ```
-http://192.168.0.75:3030/?screen=server
+http://192.168.0.75:3030/100
 ```
 
-This works even if the screen is set to `"enabled": false` in `schedule.json`. The screen's JSON file **must have a matching `id` field** or this returns a "not found" error.
+Pin to a single screen by appending `?screen=<id>`:
+
+```
+http://192.168.0.75:3030/100?screen=server
+```
+
+This works even if the screen is set to `"enabled": false` in `orchestrator.json`. The screen's JSON file **must have a matching `id` field** or this returns a "not found" error.
+
+Visit the root to see all available schedules:
+
+```
+http://192.168.0.75:3030/
+```
 
 ---
 
@@ -1053,5 +1080,5 @@ Before finalizing a layout, verify:
 - [ ] All columns add up — last widget ends ≤ 98% horizontally  
 - [ ] No widget is below its minimum usable size
 - [ ] Background suits the content (avoid busy backgrounds on dense data screens)
-- [ ] Screen is registered in `schedule.json` with a background and duration
+- [ ] Screen is registered in `orchestrator.json` with a background and duration
 - [ ] Test with `?screen=<id>` to view in isolation before enabling in rotation

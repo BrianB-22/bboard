@@ -903,7 +903,14 @@ function buildIndicator(count) {
 
 // ─── Init ─────────────────────────────────────────────────────────
 async function init() {
-  config = await fetchConfig();
+  const uid = window.location.pathname.split('/').filter(Boolean)[0];
+  if (!uid) { window.location.href = '/'; return; }
+
+  config = await fetchConfig(uid);
+  if (config.error) {
+    document.body.innerHTML = `<div style="color:white;padding:40px;font-family:monospace">Schedule "${uid}" not found. <a href="/" style="color:#8af">← Back</a></div>`;
+    return;
+  }
 
   // ?screen=hockey pins a single screen, no rotation
   const pinnedScreen = new URLSearchParams(location.search).get('screen');
@@ -913,8 +920,8 @@ async function init() {
 
   if (!pageList.length) {
     const msg = pinnedScreen
-      ? `Screen "${pinnedScreen}" not found in schedule.json.`
-      : 'No enabled pages in schedule.json';
+      ? `Screen "${pinnedScreen}" not found in orchestrator.json.`
+      : 'No enabled pages in orchestrator.json';
     document.body.innerHTML = `<div style="color:white;padding:40px;font-family:monospace">${msg}</div>`;
     return;
   }
@@ -943,7 +950,7 @@ async function init() {
   const configLastUpdated = config.lastUpdated ?? 0;
   setInterval(async () => {
     try {
-      const fresh = await fetchConfig();
+      const fresh = await fetchConfig(uid);
       if ((fresh.lastUpdated ?? 0) !== configLastUpdated) location.reload();
     } catch {}
   }, 5 * 60 * 1000);
@@ -967,7 +974,7 @@ function showOfflineOverlay() {
 
   const timer = setInterval(async () => {
     try {
-      await fetchConfig();
+      await fetchConfig(uid);
       clearInterval(timer);
       location.reload();
     } catch {}
