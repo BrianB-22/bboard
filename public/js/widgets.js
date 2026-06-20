@@ -112,7 +112,7 @@ export function renderClock(el, cfg = {}) {
   function tick() {
     const now = new Date();
     let h = now.getHours();
-    const ampm = h >= 12 ? 'AM' : 'PM';
+    const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12 || 12;
     const m = String(now.getMinutes()).padStart(2, '0');
     const s = String(now.getSeconds()).padStart(2, '0');
