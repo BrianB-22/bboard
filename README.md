@@ -1,6 +1,6 @@
 # bboard
 
-A self-hosted, always-on dashboard for a monitor or TV — a free alternative to Dakboard. Drop it on any server, point a browser at it, and you have a living display that rotates through weather, sports, home automation, calendar, and server health. It ships with five ready-to-use screens and is built to grow — add your own custom screens by combining 30+ widgets to show exactly what you want.
+A self-hosted, always-on dashboard for a monitor or TV — a free alternative to Dakboard. Drop it on any server, point a browser at it, and you have a living display that rotates through weather, sports, home automation, calendar, and server health. It ships with ready-to-use screens and is built to grow — add your own custom screens by combining 30+ widgets to show exactly what you want.
 
 The server can be anything from a Raspberry Pi to a full desktop. The display ("smart board") can be anything that runs a web browser — a computer, a Raspberry Pi with an HDMI screen, or a smart TV. Once the page is loaded, everything is managed remotely from the server: no touching the display device.
 
@@ -26,11 +26,13 @@ The server can be anything from a Raspberry Pi to a full desktop. The display ("
 
 **Calendar** — full month view with federal holidays, moon phase, season tracker, year progress bar, and your own custom dates. Everything shown at a glance.
 
+**iCloud Calendar** — 3-column "next 3 days" view pulling from multiple ICS feeds (iCloud, Outlook, Google, Apple Holidays, or any public `.ics` URL). Feeds are color-coded by calendar with per-event labels. Microsoft Teams, Zoom, and in-person meeting types are auto-detected. Multi-day events span across day columns; recurring events (RRULE) expand correctly for the current year.
+
 **Home** — door sensors, freezer and outdoor temperature graphs, smoke alarm status, and a YoLink alert banner. Pulls live data from [YoLink](https://shop.yosmart.com/) home automation sensors — door/window sensors, temperature and humidity sensors, smoke detectors, smart outlets, and power failure alarms.
 
 **Server** — CPU, RAM, swap, disk, and uptime at a glance. Hardware temperatures, drive temps, UPS status, load averages, Docker container health, and storage pair usage with backup age tracking.
 
-**Stocks** — scrolling ticker across the top, live market open/close countdown, and individual price charts with 30-day trend lines and volume bars for each symbol you configure. Powered by Yahoo Finance's public API — no key required. This is an example of what's possible; accuracy and reliability could be improved further with a paid or higher-quality data provider.
+**Stocks** — scrolling ticker across the top, live market open/close countdown, and individual price charts with 30-day trend lines and volume bars for each symbol you configure. Powered by Yahoo Finance's public API — no key required.
 
 ## Why bboard
 
@@ -54,9 +56,49 @@ npm start        # http://localhost:3030
 npm run dev      # auto-restarts on server changes
 ```
 
-The root `/` shows a schedule picker. Point each display at `/<uid>` (e.g. `/100`) to load its schedule. The admin page at `/admin` lets you manage schedules, adjust timings, backgrounds, and screen order without touching files.
+The root `/` shows a schedule picker. Point each display at `/<uid>` (e.g. `/S_100`) to load its schedule. The admin page at `/admin` lets you manage schedules, adjust timings, backgrounds, and screen order without touching files.
 
 For production deployment to a Linux server (systemd, rsync, nvm), see [SERVERSETUP.md](SERVERSETUP.md).
+
+## Multi-schedule system
+
+bboard supports multiple independent schedules from a single server, stored in `orchestrator.json`. Each schedule has its own UID, location (for weather/alerts), and page rotation.
+
+```
+/          → schedule picker (lists all schedules)
+/S_100     → loads schedule with uid "S_100"
+/admin     → admin panel (schedule selector at top)
+```
+
+Create, switch, and delete schedules from the admin panel. Each schedule is fully independent — different screens, different backgrounds, different locations, different durations.
+
+## iCloud Calendar integration
+
+The iCloud Calendar screen merges multiple calendar feeds into a 3-column day view. Feeds are configured in `.env` — URLs never go in the repo.
+
+```
+ICAL_1_URL=https://p51-caldav.icloud.com/published/2/your-url
+ICAL_1_LABEL=Personal
+ICAL_2_URL=https://outlook.office365.com/owa/calendar/.../calendar.ics
+ICAL_2_LABEL=Work
+ICAL_3_URL=https://calendars.icloud.com/holidays/us_en-us.ics/
+ICAL_3_LABEL=US Holidays
+```
+
+Add as many feeds as needed by incrementing the number. Supported sources:
+
+- **iCloud** — publish a calendar in iCloud.com → Calendar → share icon → Copy Link (use `https://`, not `webcal://`)
+- **Outlook / Microsoft 365** — right-click a calendar → Share → Get a link → ICS format
+- **Apple curated feeds** — US holidays, sports schedules, and more at `calendars.icloud.com`
+- **Any public `.ics` URL** — Google Calendar, Fastmail, etc.
+
+Features:
+- Events color-coded by calendar feed with label badges
+- Start–end times shown for timed events
+- Microsoft Teams, Zoom, and in-person (CONF) meeting types auto-detected from the location field
+- Multi-day events span across day columns
+- Recurring events (`RRULE:FREQ=YEARLY`) expanded correctly for the current year — Apple holidays, Father's Day, etc. all resolve
+- Per-feed error isolation — one failing feed doesn't break the others
 
 ## Integrations
 
@@ -68,6 +110,7 @@ For production deployment to a Linux server (systemd, rsync, nvm), see [SERVERSE
 | [Nullschool Earth](https://earth.nullschool.net/) | Wind map iframe | No |
 | [Picsum Photos](https://picsum.photos/) | Rotating background images | No |
 | [YoSmart / YoLink](https://shop.yosmart.com/) | Door, temp, smoke, outlet sensors | Yes (free account) |
+| iCloud / Outlook / any ICS | Calendar feeds for the Calendar screen | No (public share URL) |
 
 YoLink credentials go in `.env`:
 
@@ -75,6 +118,8 @@ YoLink credentials go in `.env`:
 YOLINK_UAID=ua_xxxx
 YOLINK_SECRET=sec_v1_xxxx
 ```
+
+See `.env.sample` for the full list of supported environment variables.
 
 ## Screens and widgets
 
@@ -84,7 +129,7 @@ The full widget reference — types, options, positioning, backgrounds — is in
 
 ## Security note
 
-bboard is designed for a private LAN and is not hardened for public hosting. The proxy endpoints will fetch any URL passed to them, and there is no authentication. Additional hardening, authentication, etc. would be required before any public or enterprise hosting.
+bboard is designed for a private LAN and is not hardened for public hosting. The proxy endpoints will fetch any URL passed to them, and there is no authentication. Calendar feed URLs embedded in `.env` are kept off the network and out of the repository — do not commit your `.env` file.
 
 ## Docs
 

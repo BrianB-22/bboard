@@ -195,14 +195,9 @@ function movePage(idx, dir) {
 }
 
 async function deletePage(idx) {
-  const screen = pages[idx].screen;
   pages.splice(idx, 1);
-  if (!pages.some(p => p.screen === screen)) {
-    if (!pendingDeletes.includes(screen)) pendingDeletes.push(screen);
-  }
   renderPages();
   renderAddPage();
-  renderDeleted();
   await save();
 }
 
@@ -324,7 +319,7 @@ async function save() {
     const r = await fetch('/api/admin/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: currentUid, site, pages, deleteScreens: pendingDeletes }),
+      body: JSON.stringify({ uid: currentUid, site, pages, deleteScreens: [] }),
     });
     const result = await r.json();
     if (!r.ok) throw new Error(result.error);
