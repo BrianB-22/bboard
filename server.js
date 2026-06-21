@@ -1072,7 +1072,7 @@ async function getJellyfinUserId() {
 
 app.get('/api/jellyfin/recent', async (req, res) => {
   if (!JELLYFIN_KEY) return res.json({ unavailable: true });
-  if (jellyfinCache && Date.now() - jellyfinCacheTime < 60 * 60 * 1000) return res.json(jellyfinCache);
+  if (jellyfinCache && Date.now() - jellyfinCacheTime < 4 * 60 * 60 * 1000) return res.json(jellyfinCache);
   try {
     const userId = await getJellyfinUserId();
     const headers = { 'X-Emby-Token': JELLYFIN_KEY };
