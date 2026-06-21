@@ -393,25 +393,53 @@ Fetches a JSON endpoint and displays selected fields.
 
 ### `calendar`
 
-iCal calendar feed.
+ICS/iCal event display. Calendar feeds are configured in `.env` as `ICAL_N_URL` / `ICAL_N_LABEL` pairs — no `url` param in the widget JSON. This keeps calendar share URLs out of the repo and off the client.
+
+Two display modes:
+
+**Column mode** — set `days` to get side-by-side day columns. Today is always the leftmost column and is highlighted. Multi-day events span across columns. Timed events show start–end times. Each event shows a per-feed label badge. Meeting type badges (TEAMS / ZOOM / CONF) are auto-detected from the `LOCATION` field.
 
 ```json
 {
   "type": "calendar",
-  "url": "https://calendar.google.com/...",
-  "title": "Events",
-  "count": 5,
-  "refresh": 3600,
-  "style": { "top": "5%", "left": "5%", "width": "30%", "height": "40%" }
+  "title": "Next 3 Days",
+  "days": 3,
+  "refresh": 900,
+  "style": { "top": "14%", "left": "0.5%", "width": "99%", "height": "85%" }
+}
+```
+
+**List mode** — omit `days` for a vertical list of upcoming events (original layout, useful for narrower widgets).
+
+```json
+{
+  "type": "calendar",
+  "title": "Upcoming",
+  "count": 8,
+  "refresh": 900,
+  "style": { "top": "5%", "left": "5%", "width": "30%", "height": "60%" }
 }
 ```
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `url` | — | iCal (.ics) URL. |
-| `title` | `'📅 Calendar'` | Heading. |
-| `count` | `5` | Max events to display. |
-| `refresh` | `3600` | Seconds between feed refreshes. |
+| `title` | `'Calendar'` | Heading shown above events. |
+| `days` | — | Number of day columns (column mode). Omit for list mode. |
+| `count` | `8` | Max events shown (list mode only). |
+| `refresh` | `900` | Seconds between feed refreshes. |
+
+**`.env` setup** — add one numbered block per feed:
+
+```
+ICAL_1_URL=https://p51-caldav.icloud.com/published/2/your-url
+ICAL_1_LABEL=Personal
+ICAL_2_URL=https://outlook.office365.com/owa/calendar/.../calendar.ics
+ICAL_2_LABEL=Work
+ICAL_3_URL=https://calendars.icloud.com/holidays/us_en-us.ics/
+ICAL_3_LABEL=US Holidays
+```
+
+Supported sources: iCloud (use `https://`, not `webcal://`), Outlook/M365 (ICS share link), Apple curated feeds (holidays, sports), Google Calendar, or any public `.ics` URL.
 
 ---
 
@@ -871,6 +899,7 @@ Going below these will clip content or make text unreadable at TV viewing distan
 | `nhl-scores` | 22% | 50% | Tall — needs room for multiple games |
 | `nhl-schedule` | 25% | 50% | |
 | `nhl-bracket` | 35% | 60% | Bracket is wide |
+| `calendar` (column mode) | 80% | 70% | Needs width for 3 columns; more height = more events visible |
 | `calendar-month` | 80% | 70% | Needs most of the screen |
 | `astro-info` | 50% | 9% | Short bar widget |
 | `server-stats` | 60% | 8% | Thin bar |
@@ -1002,7 +1031,8 @@ Match backgrounds to screen content and mood:
 |-------------|----------------------|
 | Weather | `animated-aurora` — dynamic, atmospheric |
 | Sports | `hockey-night` — thematic |
-| Calendar | `dark-slate` — neutral, doesn't compete with text |
+| Calendar (month) | `dark-slate` — neutral, doesn't compete with text |
+| iCloud Calendar | `picsum-nature` — rotates photos, gives it life |
 | Home/sensors | `dark-blue` — calm, easy to read |
 | Server/tech | `neon-tech` — fits the aesthetic |
 | Photo slideshow | `picsum-nature` / `picsum-space` / `picsum-city` |
@@ -1067,6 +1097,16 @@ server-ups               top:14% left:46%   w:26%  h:40%
 server-load              top:14% left:74%   w:24%  h:40%
 server-docker            top:56% left:2%    w:44%  h:42%
 server-storage           top:56% left:48%   w:50%  h:42%
+```
+
+#### icloud-calendar screen
+
+3-column "next 3 days" layout powered by multi-feed ICS aggregation.
+
+```
+clock                    top:1%  left:0.5%  w:22%  h:11%
+astro-info               top:1%  left:23.5% w:76%  h:11%
+calendar (days:3)        top:14% left:0.5%  w:99%  h:85%
 ```
 
 ---

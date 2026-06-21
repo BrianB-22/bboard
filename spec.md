@@ -112,7 +112,7 @@ Named background definitions referenced by ID in `orchestrator.json`.
 | `sun-times` | Derived from weather data | 15 minutes |
 | `nhl-scores` | api-web.nhle.com (no key) | 5 minutes |
 | `rss` | Any RSS feed URL | configurable |
-| `calendar` | Any ICS/iCal URL | configurable (default 1 hour) |
+| `calendar` | Multiple ICS feeds via `ICAL_N_URL` env vars | configurable (default 15 min) |
 | `json` | Any JSON URL | configurable |
 | `gauge` | Fixed value or any JSON URL path | configurable |
 
@@ -207,12 +207,20 @@ Numbered list of headlines from any RSS feed. Server parses XML; no client-side 
 ---
 
 ## Widget: `calendar`
-Displays upcoming events from any ICS/iCal URL (Google Calendar, Apple iCal, Outlook, etc.).
-Today's events are highlighted. All-day events shown as "All day".
+
+Two display modes depending on the `days` config:
+
+**Column mode** (`days` set, typically 3): Side-by-side day columns, today always on the left and highlighted. Events span across day columns if they last more than one day. Timed events show start–end times. Events carry per-feed label badges. Microsoft Teams, Zoom, and in-person meeting types are auto-detected from the `LOCATION` field and shown as `TEAMS`, `ZOOM`, or `CONF` badges next to the calendar label.
+
+**List mode** (no `days`): Vertical list of upcoming events, newest first. All-day events shown as "All day".
+
+Calendar feeds are configured server-side in `.env` as `ICAL_N_URL` / `ICAL_N_LABEL` pairs — the widget does not take a `url` param. This keeps calendar share URLs off the client and out of the repo.
 
 ```json
-{ "type": "calendar", "url": "https://...ical...", "title": "My Calendar", "count": 5, "refresh": 3600, "style": { ... } }
+{ "type": "calendar", "title": "Next 3 Days", "days": 3, "refresh": 900, "style": { ... } }
 ```
+
+Supported sources: iCloud personal/family, Apple curated feeds (US Holidays, sports), Outlook/Microsoft 365, Google Calendar, any public `.ics` URL. See README for env var setup.
 
 ---
 
@@ -307,15 +315,21 @@ Shows today's sunrise time, sunset time, and total daylight hours. Derived from 
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/config` | Merged config (schedule + screens + backgrounds) |
+| `GET /api/config?uid=` | Merged config (schedule + screens + backgrounds) for a given UID |
+| `GET /api/schedules` | List of all schedules `[{ uid, desc }]` |
 | `GET /api/weather?lat=&lon=` | Open-Meteo forecast proxy |
 | `GET /api/aqi?lat=&lon=` | Open-Meteo air quality proxy |
 | `GET /api/alerts?lat=&lon=` | NWS active alerts proxy |
 | `GET /api/nhl/scores` | NHL scoreboard proxy (normalized) |
 | `GET /api/rss?url=` | RSS feed proxy + parser |
-| `GET /api/ical?url=` | ICS/iCal proxy + parser |
+| `GET /api/calendars` | Multi-feed ICS aggregator — reads all `ICAL_N_URL`/`ICAL_N_LABEL` from `.env` |
 | `GET /api/json-fetch?url=` | Generic JSON proxy |
 | `GET /api/proxy-image?url=` | Image proxy (handles HTTP→HTTPS mixed content) |
+| `GET /api/admin/data?uid=` | Full admin payload (schedule, screens list, backgrounds, deleted screens) |
+| `POST /api/admin/config` | Save schedule changes (pages, site settings) |
+| `POST /api/admin/schedules` | Create a new schedule |
+| `DELETE /api/admin/schedules/:uid` | Delete a schedule |
+| `POST /api/admin/screens/:name/restore` | Restore a soft-deleted screen file |
 
 ---
 
@@ -325,12 +339,15 @@ Shows today's sunrise time, sunset time, and total daylight hours. Derived from 
 
 ```bash
 npm install
-npm start          # default port 3000
+npm start          # default port 3030
 PORT=8080 npm start
 ```
 
-Access at `http://<server-ip>:3000` from any browser on the network.
+Access at `http://<server-ip>:3030` from any browser on the network. The root `/` shows a schedule picker; kiosks load `/<uid>` directly.
+
 For always-on display, use a browser in kiosk mode:
 ```bash
-chromium-browser --kiosk http://localhost:3000
+chromium-browser --kiosk http://localhost:3030/S_100
 ```
+
+For production deployment (systemd, rsync, nvm), see [SERVERSETUP.md](SERVERSETUP.md).

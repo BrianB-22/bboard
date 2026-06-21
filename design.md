@@ -29,20 +29,28 @@ Config Files
 ```
 bboard/
 ├── server.js              Express server + API routes
-├── orchestrator.json          Master orchestration
+├── orchestrator.json      Master orchestration (all schedules)
 ├── backgrounds.json       Background library
 ├── screens/               One file per page layout
 │   ├── weather.json
-│   └── hockey.json
+│   ├── hockey.json
+│   ├── icloud-calendar.json
+│   └── ...
 ├── package.json
+├── .env                   Secrets (not committed — YoLink keys, calendar URLs)
+├── .env.sample            Documented template
 └── public/                Static files served by Express
-    ├── index.html         Minimal HTML shell
+    ├── index.html         Dashboard shell (loads a schedule by UID)
+    ├── pick.html          Schedule picker (served at /)
     ├── css/
     │   └── dashboard.css  All styles (CSS custom properties + BEM-ish classes)
-    └── js/
-        ├── dashboard.js   Main controller (ES module)
-        ├── api.js         Fetch helpers
-        └── widgets.js     Widget renderers (one export per widget type)
+    ├── js/
+    │   ├── dashboard.js   Main controller (ES module)
+    │   ├── api.js         Fetch helpers
+    │   └── widgets.js     Widget renderers (one export per widget type)
+    └── admin/
+        ├── admin.html     Admin UI shell
+        └── admin.js       Admin controller
 ```
 
 ---
@@ -199,16 +207,47 @@ Open-Meteo uses WMO weather codes (0–99). `widgets.js` includes a lookup table
 
 ---
 
-## ICS Parser
+## ICS / Calendar Parser
 
-Server-side, dependency-free. Uses regex to:
-1. Extract `BEGIN:VEVENT ... END:VEVENT` blocks
-2. Parse `DTSTART`, `SUMMARY`, `LOCATION`, `DESCRIPTION` properties
-3. Handle TZID prefix stripping, all-day format (YYYYMMDD), and datetime format (YYYYMMDDTHHmmssZ)
-4. Filter out past events (> 1 hour ago)
-5. Sort by start time ascending
+Server-side, dependency-free. Handles multi-feed aggregation via `ICAL_N_URL` / `ICAL_N_LABEL` env vars.
 
-Recurring events (RRULE) are not currently expanded — only the base occurrence is shown.
+### Line unfolding
+
+ICS files use CRLF+whitespace line continuation (RFC 5545). The parser unfolds before any other processing:
+
+```js
+const unfolded = text.replace(/\r?\n[ \t]/g, '');
+```
+
+This is required for Outlook ICS files, which fold long `LOCATION` and `DESCRIPTION` values.
+
+### VEVENT parsing
+
+1. Extract `BEGIN:VEVENT … END:VEVENT` blocks
+2. Parse `DTSTART`, `DTEND`, `SUMMARY`, `LOCATION`, `RRULE` properties
+3. Strip TZID prefixes; handle all-day format (`YYYYMMDD`) vs datetime (`YYYYMMDDTHHmmssZ`)
+4. `DTEND` for all-day events is exclusive (the day after the last day) — stored as `T00:00:00`
+5. `isNaN` guards on all parsed dates; per-VEVENT try/catch so one malformed event can't crash the feed
+
+### Cutoff and filtering
+
+Events are filtered to today onward (cutoff = start of today). Multi-day events that started before today but end today or later are kept; events that ended before cutoff are dropped.
+
+### RRULE expansion
+
+`FREQ=YEARLY` recurring events (Apple US Holidays, Father's Day, Thanksgiving, etc.) are expanded into concrete Date instances within a 90-day window using `expandYearlyRRule`. Supported modifiers:
+
+- `BYMONTH` — month number
+- `BYDAY` — `NXX` form, e.g. `3SU` (3rd Sunday) or `-1MO` (last Monday)
+- `COUNT` — cap on occurrences (defaults to 20 if absent)
+
+Other FREQ values fall through to single-event handling.
+
+### Multi-feed aggregation
+
+`/api/calendars` loops over all `ICAL_N_URL`/`ICAL_N_LABEL` pairs from `.env`, fetches them in parallel via `Promise.all`, and isolates each feed with a per-feed try/catch and a 10-second `AbortSignal.timeout`. One failing feed returns `[]` for that feed; the rest continue normally.
+
+Events from all feeds are merged and sorted by start time before being sent to the client. Each event carries a `calendar` field (the label) used by the widget for per-feed badges.
 
 ---
 
