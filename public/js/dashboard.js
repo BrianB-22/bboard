@@ -1,16 +1,20 @@
-import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchCalendars, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams, fetchStocks, fetchMovies, fetchJellyfin } from './api.js';
+import { fetchConfig, fetchWeather, fetchAQI, fetchAlerts, fetchNHLScores, fetchNHLBracket, fetchRSS, fetchCalendar, fetchCalendars, fetchJSON, fetchCustomDates, fetchYoLink, fetchYoLinkHistory, fetchFavoriteTeams, fetchStocks, fetchMovies, fetchJellyfin, fetchUnifi } from './api.js';
 import {
   renderClock, renderAQI, renderAlerts, renderIframe, renderImage,
   renderWeatherCurrent, renderWeatherHourly, renderWeatherDaily,
   renderNHLScores, renderNHLSchedule, renderNHLBracket, renderRSS,
   renderText, renderScheduledText, renderCountdown, renderSunTimes,
   renderGauge, renderJSON, renderCalendar, renderWeekCalendar,
-  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp, renderYoLinkOutlet, renderYoLinkSmoke,
+  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp, renderYoLinkTempBars, renderYoLinkOutlet, renderYoLinkSmoke,
   renderServerStats, renderServerStorage,
   renderServerHardware, renderServerDrives, renderServerUPS, renderServerLoad, renderServerDocker,
   renderStockTicker, renderStockCountdown, renderStockCharts,
   renderMovieTheaters, renderMovieStreaming,
   renderJellyfinMovies, renderJellyfinShows,
+  renderWeatherNextPrecip,
+  renderWeatherDaySummary,
+  renderUnifiAPs, renderUnifiClients, renderUnifiStats, renderUnifiBandwidth,
+  renderNewsFeed,
 } from './widgets.js';
 
 let uid    = null;
@@ -430,6 +434,24 @@ async function mountWidget(widgetCfg) {
       });
       break;
 
+    case 'weather-next-precip':
+      renderWeatherNextPrecip(el, weatherData);
+      weatherCallbacks.push(() => {
+        el.innerHTML = '';
+        el.className = 'widget';
+        renderWeatherNextPrecip(el, weatherData);
+      });
+      break;
+
+    case 'weather-day-summary':
+      renderWeatherDaySummary(el, weatherData);
+      weatherCallbacks.push(() => {
+        el.innerHTML = '';
+        el.className = 'widget';
+        renderWeatherDaySummary(el, weatherData);
+      });
+      break;
+
     case 'gauge': {
       async function updateGauge() {
         let value = widgetCfg.value ?? 0;
@@ -487,6 +509,21 @@ async function mountWidget(widgetCfg) {
         renderYoLink(el, data);
       });
       break;
+
+    case 'yolink-temp-bars': {
+      const findTempB = d => d?.sensors?.find(
+        s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
+      );
+      async function drawTempBars() {
+        const hist = await fetchYoLinkHistory(24).catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        renderYoLinkTempBars(el, findTempB(yolinkData), hist, 24, yolinkData);
+      }
+      await drawTempBars();
+      yolinkCallbacks.push(async () => drawTempBars());
+      setInterval(drawTempBars, 10 * 60 * 1000);
+      break;
+    }
 
     case 'yolink-temp': {
       let tempHours = widgetCfg.hours || 24;
@@ -665,6 +702,30 @@ async function mountWidget(widgetCfg) {
       }
       await loadStockCharts();
       setInterval(loadStockCharts, 60 * 1000);
+      break;
+    }
+
+    case 'unifi-stats':
+    case 'unifi-aps':
+    case 'unifi-clients':
+    case 'unifi-bandwidth': {
+      const unifiType = widgetCfg.type;
+      let unifiData = null;
+      async function loadUnifi() {
+        unifiData = await fetchUnifi().catch(() => null);
+        el.innerHTML = ''; el.className = 'widget';
+        if (unifiType === 'unifi-aps')            renderUnifiAPs(el, unifiData);
+        else if (unifiType === 'unifi-clients')   renderUnifiClients(el, unifiData);
+        else if (unifiType === 'unifi-bandwidth') renderUnifiBandwidth(el, unifiData);
+        else                                      renderUnifiStats(el, unifiData);
+      }
+      await loadUnifi();
+      setInterval(loadUnifi, 30 * 1000);
+      break;
+    }
+
+    case 'news-feed': {
+      await renderNewsFeed(el, widgetCfg);
       break;
     }
 
@@ -904,9 +965,28 @@ function buildIndicator(count) {
   }
 }
 
+// ─── Swipe navigation ────────────────────────────────────────────
+function initSwipe() {
+  let startX = null;
+  document.body.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+  }, { passive: true });
+  document.body.addEventListener('touchend', e => {
+    if (startX === null) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    startX = null;
+    if (Math.abs(dx) < 50) return;
+    const dir = dx < 0 ? 1 : -1;
+    const next = (currentPage + dir + pages.length) % pages.length;
+    if (rotateTimer) clearTimeout(rotateTimer);
+    showPage(next);
+    startRotation();
+  }, { passive: true });
+}
+
 // ─── Init ─────────────────────────────────────────────────────────
 async function init() {
-  uid = window.location.pathname.split('/').filter(Boolean)[0];
+  uid = window.location.pathname.split('/').filter(Boolean)[0]?.toUpperCase();
   if (!uid) { window.location.href = '/'; return; }
 
   config = await fetchConfig(uid);
@@ -947,7 +1027,7 @@ async function init() {
 
   buildIndicator(pages.length);
   showPage(0);
-  if (!pinnedScreen) startRotation();
+  if (!pinnedScreen) { startRotation(); initSwipe(); }
   scheduleNightlyReload();
 
   const configLastUpdated = config.lastUpdated ?? 0;
