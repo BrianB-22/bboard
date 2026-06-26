@@ -1,0 +1,29 @@
+{
+  "id": "news",
+  "name": "News",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "news-clock",
+      "style": { "top": "1%", "left": "0.5%", "width": "40%", "height": "9%" }
+    },
+    {
+      "type": "news-feed",
+      "id": "rantingly",
+      "url": "https://rantingly.com/feed/",
+      "name": "Rantingly",
+      "color": "#e53935",
+      "maxItems": 7,
+      "style": { "top": "12%", "left": "0.5%", "width": "49%", "height": "86%" }
+    },
+    {
+      "type": "news-feed",
+      "id": "federalist",
+      "url": "https://thefederalist.com/feed/",
+      "name": "The Federalist",
+      "color": "#1565c0",
+      "maxItems": 7,
+      "style": { "top": "12%", "left": "51%", "width": "48.5%", "height": "86%" }
+    }
+  ]
+}

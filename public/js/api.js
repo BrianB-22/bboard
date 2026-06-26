@@ -90,3 +90,8 @@ export async function fetchJellyfin() {
   const r = await fetch('/api/jellyfin/recent');
   return r.json();
 }
+
+export async function fetchUnifi() {
+  const r = await fetch('/api/unifi');
+  return r.json();
+}

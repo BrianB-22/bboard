@@ -1,0 +1,31 @@
+{
+  "id": "network",
+  "name": "Network",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "net-clock",
+      "style": { "top": "1%", "left": "0.5%", "width": "60%", "height": "9%" }
+    },
+    {
+      "type": "unifi-stats",
+      "id": "net-stats",
+      "style": { "top": "12%", "left": "0.5%", "width": "99%", "height": "22%" }
+    },
+    {
+      "type": "unifi-aps",
+      "id": "net-aps",
+      "style": { "top": "36%", "left": "0.5%", "width": "48.5%", "height": "62%" }
+    },
+    {
+      "type": "unifi-bandwidth",
+      "id": "net-bw",
+      "style": { "top": "36%", "left": "51%", "width": "48.5%", "height": "30%" }
+    },
+    {
+      "type": "unifi-clients",
+      "id": "net-issues",
+      "style": { "top": "68%", "left": "51%", "width": "48.5%", "height": "30%" }
+    }
+  ]
+}

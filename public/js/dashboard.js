@@ -517,7 +517,7 @@ async function mountWidget(widgetCfg) {
       async function drawTempBars() {
         const hist = await fetchYoLinkHistory(24).catch(() => null);
         el.innerHTML = ''; el.className = 'widget';
-        renderYoLinkTempBars(el, findTempB(yolinkData), hist, 24, yolinkData);
+        renderYoLinkTempBars(el, findTempB(yolinkData), hist, 24, yolinkData, widgetCfg);
       }
       await drawTempBars();
       yolinkCallbacks.push(async () => drawTempBars());
@@ -802,6 +802,9 @@ function showPage(idx) {
   const onHome = config.pages[idx]?.id === 'home';
   const corner = document.getElementById('yl-top-right');
   if (corner) corner.hidden = !onHome;
+  const onHomeTemps = config.pages[idx]?.id === 'home-temps';
+  const tempAlerts = document.getElementById('yl-temp-alerts');
+  if (tempAlerts) tempAlerts.hidden = !onHomeTemps;
   const hockeyBanner = document.getElementById('hockey-alert-banner');
   if (hockeyBanner) hockeyBanner.hidden = config.pages[idx]?.id !== 'hockey';
 }
@@ -822,12 +825,9 @@ function computeYoLinkAlerts(data) {
   const alerts = [];
   if (!data?.sensors) return alerts;
   for (const s of data.sensors) {
-    if (s.alarm?.highTemp) alerts.push({ level: 'error', msg: `🌡️ ${s.name}: high temp` });
-    if (s.alarm?.lowTemp)  alerts.push({ level: 'warn',  msg: `❄️ ${s.name}: low temp` });
-    if (s.alarm?.lowBattery || (s.battery != null && s.battery <= 1 && !s.alarm?.lowBattery))
-      alerts.push({ level: 'warn', msg: `🔋 ${s.name}: battery low` });
-    if (s.online === false)
-      alerts.push({ level: 'warn', msg: `📡 ${s.name}: offline` });
+    if (s.alarm?.highTemp)    alerts.push({ level: 'error', msg: `🌡️ ${s.name}: high temp` });
+    if (s.alarm?.lowTemp)     alerts.push({ level: 'warn',  msg: `❄️ ${s.name}: low temp` });
+    if (s.alarm?.lowBattery)  alerts.push({ level: 'warn',  msg: `🔋 ${s.name}: battery low` });
     if (s.type === 'PowerFailureAlarm' && (s.alarm || s.powerSupply === false))
       alerts.push({ level: 'error', msg: `⚡ ${s.name}: POWER FAILURE` });
     if (s.type === 'COSmokeSensor') {
@@ -835,10 +835,6 @@ function computeYoLinkAlerts(data) {
       if (s.gasAlarm)      alerts.push({ level: 'error', msg: `☁️ ${s.name}: GAS/CO DETECTED` });
       if (s.highTempAlarm) alerts.push({ level: 'error', msg: `🌡️ ${s.name}: HIGH TEMP ALARM` });
       if (s.lowBattery)    alerts.push({ level: 'warn',  msg: `🔋 ${s.name}: battery low` });
-    }
-    if (s.type === 'THSensor' && s.name.toLowerCase().includes('freez')) {
-      const tooWarm = s.unit === 'C' ? s.temp > -10 : s.temp > 14;
-      if (tooWarm) alerts.push({ level: 'error', msg: `❄️ ${s.name}: ${s.temp}°${s.unit} — too warm!` });
     }
   }
   return alerts;
@@ -859,6 +855,7 @@ function updateAlertBanner(data) {
     banner.id = 'yl-alert-banner';
     corner.appendChild(banner);
   }
+  banner.hidden = true; // alert pills live in #yl-temp-alerts on home-temps now
 
   let badge = document.getElementById('yl-smoke-badge');
   if (!badge) {
@@ -910,11 +907,16 @@ function updateAlertBanner(data) {
     powerBadge.hidden = false;
   }
 
-  const alerts = computeYoLinkAlerts(data);
-  if (!alerts.length) { banner.hidden = true; return; }
+  let tempAlerts = document.getElementById('yl-temp-alerts');
+  if (!tempAlerts) {
+    tempAlerts = document.createElement('div');
+    tempAlerts.id = 'yl-temp-alerts';
+    document.body.appendChild(tempAlerts);
+  }
+  tempAlerts.hidden = config.pages[currentPage]?.id !== 'home-temps';
 
-  banner.hidden = false;
-  banner.innerHTML = alerts.map(a =>
+  const alerts = computeYoLinkAlerts(data);
+  tempAlerts.innerHTML = alerts.map(a =>
     `<div class="yl-banner-row yl-banner-${a.level}">${a.msg}</div>`
   ).join('');
 }

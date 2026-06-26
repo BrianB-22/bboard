@@ -1,6 +1,6 @@
 {
-  "id": "icloud-calendar",
-  "name": "iCloud Calendar",
+  "id": "ics-calendar",
+  "name": "ICS Calendar",
   "widgets": [
     {
       "type": "clock",

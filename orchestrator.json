@@ -16,31 +16,82 @@
         {
           "screen": "weather",
           "background": "animated-aurora",
-          "duration": 60,
+          "duration": 30,
           "enabled": true
         },
         {
           "screen": "home",
           "background": "dark-blue",
-          "duration": 60,
+          "duration": 30,
+          "enabled": true
+        },
+        {
+          "screen": "home-temps",
+          "background": "picsum-nature",
+          "duration": 30,
           "enabled": true
         },
         {
           "screen": "calendar",
           "background": "dark-slate",
-          "duration": 60,
+          "duration": 30,
+          "enabled": true
+        },
+        {
+          "screen": "jellyfin",
+          "background": "lava-lamp",
+          "duration": 30,
+          "enabled": true
+        },
+        {
+          "screen": "server",
+          "background": "neon-tech",
+          "duration": 30,
+          "enabled": true
+        },
+        {
+          "screen": "network",
+          "background": "neon-tech",
+          "duration": 30,
           "enabled": true
         },
         {
           "screen": "hockey",
           "background": "hockey-night",
           "duration": 60,
+          "enabled": false
+        }
+      ]
+    },
+    {
+      "uid": "S_101",
+      "desc": "DailyBrief",
+      "site": {
+        "title": "bboard",
+        "location": {
+          "lat": 34.9357795,
+          "lon": -80.7257573,
+          "name": "Mineral Springs, North Carolina"
+        },
+        "showScreenIndicator": true
+      },
+      "pages": [
+        {
+          "screen": "weather-today",
+          "background": "picsum-space",
+          "duration": 30,
           "enabled": true
         },
         {
-          "screen": "icloud-calendar",
+          "screen": "home",
+          "background": "deep-ocean",
+          "duration": 30,
+          "enabled": true
+        },
+        {
+          "screen": "ics-calendar",
           "background": "picsum-nature",
-          "duration": 60,
+          "duration": 45,
           "enabled": true
         }
       ]

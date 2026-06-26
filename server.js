@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import os from 'os';
 import { exec } from 'child_process';
+import https from 'https';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -57,7 +58,9 @@ function writeOrchestrator(data) {
 }
 
 function findSchedule(orchestrator, uid) {
-  return (uid ? orchestrator.schedules.find(s => s.uid === uid) : orchestrator.schedules[0]) ?? null;
+  if (!uid) return orchestrator.schedules[0] ?? null;
+  const u = uid.toUpperCase();
+  return orchestrator.schedules.find(s => s.uid.toUpperCase() === u) ?? null;
 }
 
 function requireSchedule(res, orchestrator, uid) {
@@ -254,25 +257,49 @@ app.get('/api/nhl/bracket', async (req, res) => {
   }
 });
 
+const _rssCache = new Map();
+const RSS_TTL = 10 * 60 * 1000;
+
+function stripHtml(html = '') {
+  return html
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#\d+;/g, '')
+    .replace(/\s+/g, ' ').trim();
+}
+
+function cdata(s = '') {
+  return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim();
+}
+
 app.get('/api/rss', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url required' });
+
+  const cached = _rssCache.get(url);
+  if (cached && Date.now() - cached.at < RSS_TTL) return res.json(cached.data);
 
   try {
     const r = await fetch(url, { headers: { 'User-Agent': 'bboard-dashboard' } });
     const xml = await r.text();
 
-    // Minimal RSS parser — no dependencies
-    const feedTitle = (xml.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
+    const feedTitle = stripHtml((xml.match(/<title[^>]*>([\s\S]*?)<\/title>/) || [])[1] || '');
     const itemMatches = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/g)];
-    const items = itemMatches.slice(0, 20).map(m => {
+    const items = itemMatches.slice(0, 15).map(m => {
       const block = m[1];
-      const title = (block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/) || [])[1]?.trim() || '';
-      const link  = (block.match(/<link>([^<]*)<\/link>/) || [])[1]?.trim() || '';
-      return { title, link };
+      const title   = stripHtml((block.match(/<title[^>]*>([\s\S]*?)<\/title>/) || [])[1] || '');
+      const link    = cdata((block.match(/<link>([\s\S]*?)<\/link>/) || [])[1] || '');
+      const pubDate = (block.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1]?.trim() || '';
+      const encoded = (block.match(/<content:encoded>([\s\S]*?)<\/content:encoded>/) || [])[1] || '';
+      const desc    = (block.match(/<description>([\s\S]*?)<\/description>/) || [])[1] || '';
+      const raw     = encoded || desc;
+      const excerpt = stripHtml(raw).slice(0, 300);
+      return { title, link, pubDate, excerpt };
     }).filter(i => i.title);
 
-    res.json({ feedTitle, items });
+    const data = { feedTitle, items };
+    _rssCache.set(url, { at: Date.now(), data });
+    res.json(data);
   } catch (e) {
     res.status(500).json({ error: 'RSS fetch failed', detail: e.message });
   }
@@ -728,6 +755,143 @@ if (YOLINK_ENABLED) {
   console.log('YoLink disabled — set YOLINK_UAID and YOLINK_SECRET in .env to enable');
 }
 
+// ─── Unifi ───────────────────────────────────────────────────────
+const UNIFI_URL  = process.env.UNIFI_URL  || 'https://localhost:8443';
+const UNIFI_USER = process.env.UNIFI_USER || '';
+const UNIFI_PASS = process.env.UNIFI_PASS || '';
+const UNIFI_ENABLED = !!(UNIFI_USER && UNIFI_PASS);
+
+let _unifiCookie  = null;
+let _unifiCache   = null;
+let _unifiCacheAt = 0;
+
+const _unifiAgent = new https.Agent({ rejectUnauthorized: false });
+
+function unifiRequest(method, path, body, cookie) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(UNIFI_URL + path);
+    const payload = body ? JSON.stringify(body) : null;
+    const headers = { 'Content-Type': 'application/json' };
+    if (cookie) headers['Cookie'] = cookie;
+    if (payload) headers['Content-Length'] = Buffer.byteLength(payload);
+    const req = https.request({ hostname: url.hostname, port: url.port || 443, path: url.pathname, method, headers, agent: _unifiAgent }, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+async function unifiLogin() {
+  const r = await unifiRequest('POST', '/api/login', { username: UNIFI_USER, password: UNIFI_PASS }, null);
+  if (r.status !== 200) throw new Error(`Unifi login failed: ${r.status}`);
+  const cookie = r.headers['set-cookie']?.[0];
+  if (!cookie) throw new Error('Unifi login failed — no cookie');
+  _unifiCookie = cookie.split(';')[0];
+}
+
+async function unifiGet(path) {
+  const r = await unifiRequest('GET', path, null, _unifiCookie);
+  if (r.status === 401) { _unifiCookie = null; throw new Error('unifi_401'); }
+  return JSON.parse(r.body).data ?? [];
+}
+
+async function pollUnifi() {
+  try {
+    if (!_unifiCookie) await unifiLogin();
+    const [clients, devices, health] = await Promise.all([
+      unifiGet('/api/s/default/stat/sta'),
+      unifiGet('/api/s/default/stat/device'),
+      unifiGet('/api/s/default/stat/health'),
+    ]);
+    const aps = devices.map(d => ({
+      name:    d.name || d.hostname || d.mac,
+      model:   d.model,
+      state:   d.state === 1 ? 'online' : 'offline',
+      clients: d.num_sta ?? 0,
+      uptime:  d.uptime ?? 0,
+      satisfaction: d.satisfaction ?? null,
+    }));
+    const sta = clients.map(c => ({
+      hostname: c.hostname || c.mac,
+      ip:       c.ip || c.last_ip || '',
+      ap:       c.last_uplink_name || '',
+      rssi:     c.rssi ?? null,
+      signal:   c.signal ?? null,
+      score:    c.satisfaction_now ?? c.satisfaction ?? null,
+      band:     c.radio === 'ng' ? '2.4' : c.radio === 'na' ? '5' : c.radio === '6e' ? '6' : '5',
+      txRate:   c['tx_bytes-r'] ?? 0,
+      rxRate:   c['rx_bytes-r'] ?? 0,
+    }));
+
+    // Compute summary metrics
+    const scores = sta.map(c => c.score).filter(s => s != null);
+    const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+    const totalTx = sta.reduce((s, c) => s + c.txRate, 0);
+    const totalRx = sta.reduce((s, c) => s + c.rxRate, 0);
+    const issues = sta
+      .filter(c => c.score != null && c.score < 50)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 10);
+    const apsOffline = aps.filter(a => a.state !== 'online');
+
+    // Per-AP satisfaction + bandwidth
+    const apStats = {};
+    for (const c of sta) {
+      if (!c.ap) continue;
+      if (!apStats[c.ap]) apStats[c.ap] = { scores: [], tx: 0, rx: 0 };
+      if (c.score != null) apStats[c.ap].scores.push(c.score);
+      apStats[c.ap].tx += c.txRate;
+      apStats[c.ap].rx += c.rxRate;
+    }
+    const apsWithHealth = aps.map(a => ({
+      ...a,
+      avgScore: apStats[a.name]?.scores.length
+        ? Math.round(apStats[a.name].scores.reduce((s, v) => s + v, 0) / apStats[a.name].scores.length)
+        : null,
+      tx: apStats[a.name]?.tx ?? 0,
+      rx: apStats[a.name]?.rx ?? 0,
+    }));
+
+    // Top bandwidth consumers
+    const topBandwidth = sta
+      .map(c => ({ ...c, total: c.txRate + c.rxRate }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    // WAN status from health subsystem ('unknown' means unverified, not down)
+    const wan = health.find(h => h.subsystem === 'wan') || health.find(h => h.subsystem === 'www');
+    const wanStatus = wan
+      ? { up: wan.status !== 'error' && wan.status !== 'down', latency: wan.latency ?? null, ip: wan.wan_ip ?? null, isp: wan.isp_name ?? null }
+      : null;
+
+    _unifiCache = {
+      aps: apsWithHealth, total: sta.length, fetchedAt: Date.now(),
+      avgScore, totalTx, totalRx,
+      issues, apsOffline, topBandwidth, wanStatus,
+      apsOnline: aps.filter(a => a.state === 'online').length,
+    };
+    _unifiCacheAt = Date.now();
+  } catch (e) {
+    if (e.message === 'unifi_401') { _unifiCookie = null; }
+    console.warn('Unifi poll failed:', e.message);
+  }
+}
+
+if (UNIFI_ENABLED) {
+  pollUnifi();
+  setInterval(pollUnifi, 30 * 1000);
+}
+
+app.get('/api/unifi', (req, res) => {
+  if (!UNIFI_ENABLED) return res.json({ disabled: true });
+  if (!_unifiCache)   return res.json({ loading: true });
+  res.json(_unifiCache);
+});
+
 // ─── Server Stats ────────────────────────────────────────────────
 function cpuPercent() {
   return new Promise(resolve => {
@@ -900,7 +1064,7 @@ app.post('/api/admin/config', (req, res) => {
   try {
     const { uid, site, pages, deleteScreens = [] } = req.body;
     const orchestrator = readOrchestrator();
-    const idx = orchestrator.schedules.findIndex(s => s.uid === uid);
+    const idx = orchestrator.schedules.findIndex(s => s.uid.toUpperCase() === uid.toUpperCase());
     if (idx === -1) return res.status(404).json({ error: 'Schedule not found' });
     orchestrator.schedules[idx] = { ...orchestrator.schedules[idx], site, pages };
     writeOrchestrator(orchestrator);
@@ -949,7 +1113,7 @@ app.delete('/api/admin/schedules/:uid', (req, res) => {
     const { uid } = req.params;
     const orchestrator = readOrchestrator();
     if (orchestrator.schedules.length <= 1) return res.status(400).json({ error: 'Cannot delete the last schedule' });
-    const idx = orchestrator.schedules.findIndex(s => s.uid === uid);
+    const idx = orchestrator.schedules.findIndex(s => s.uid.toUpperCase() === uid.toUpperCase());
     if (idx === -1) return res.status(404).json({ error: 'Schedule not found' });
     orchestrator.schedules.splice(idx, 1);
     writeOrchestrator(orchestrator);

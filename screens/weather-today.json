@@ -1,0 +1,62 @@
+{
+  "id": "weather-today",
+  "name": "Weather Today",
+  "widgets": [
+    {
+      "type": "clock",
+      "id": "wt-clock",
+      "style": { "top": "1%", "left": "0.5%", "width": "46%", "height": "9%" }
+    },
+    {
+      "type": "alerts",
+      "id": "wt-alerts",
+      "style": { "top": "1%", "left": "47.5%", "width": "36%", "height": "7%" }
+    },
+    {
+      "type": "aqi",
+      "id": "wt-aqi",
+      "style": { "top": "0.5%", "right": "0.5%", "width": "12%", "height": "10%" }
+    },
+
+    {
+      "type": "yolink-temp-bars",
+      "id": "wt-outdoor",
+      "device": "Outdoor Temp",
+      "style": { "top": "12%", "left": "0.5%", "width": "48.5%", "height": "26%" }
+    },
+    {
+      "type": "image",
+      "id": "wt-radar",
+      "src": "/api/proxy-image?url=https%3A%2F%2Fradar.weather.gov%2Fridge%2Fstandard%2FKGSP_loop.gif",
+      "refresh": 300,
+      "style": { "top": "40%", "left": "0.5%", "width": "48.5%", "height": "59%" }
+    },
+
+    {
+      "type": "weather-current",
+      "id": "wt-current",
+      "style": { "top": "12%", "left": "50%", "width": "25%", "height": "22%" }
+    },
+    {
+      "type": "weather-next-precip",
+      "id": "wt-next-precip",
+      "style": { "top": "12%", "left": "76%", "width": "23.5%", "height": "22%" }
+    },
+    {
+      "type": "weather-hourly",
+      "id": "wt-hourly",
+      "hours": 10,
+      "style": { "top": "36%", "left": "50%", "width": "49.5%", "height": "27%" }
+    },
+    {
+      "type": "sun-times",
+      "id": "wt-sun",
+      "style": { "top": "65%", "left": "50%", "width": "24%", "height": "34%" }
+    },
+    {
+      "type": "weather-day-summary",
+      "id": "wt-day-summary",
+      "style": { "top": "65%", "left": "75%", "width": "24.5%", "height": "34%" }
+    }
+  ]
+}

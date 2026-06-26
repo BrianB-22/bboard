@@ -288,7 +288,6 @@ export function renderWeatherCurrent(el, data) {
 
   const c   = data.current;
   const w   = wmo(c.weather_code);
-  const sun = data.daily?.sunset?.[0]?.split('T')[1]?.replace(':00','') || '--';
   const sun2= (() => {
     const t = data.daily?.sunset?.[0];
     if (!t) return '--';
@@ -296,6 +295,8 @@ export function renderWeatherCurrent(el, data) {
     let h = d.getHours(); const am = h >= 12 ? 'pm':'am'; h = h%12||12;
     return `${h}:${String(d.getMinutes()).padStart(2,'0')} ${am}`;
   })();
+  const hi  = data.daily?.temperature_2m_max?.[0] != null ? Math.round(data.daily.temperature_2m_max[0]) : null;
+  const lo  = data.daily?.temperature_2m_min?.[0] != null ? Math.round(data.daily.temperature_2m_min[0]) : null;
 
   el.innerHTML = `
     <div class="wc-main">
@@ -303,7 +304,7 @@ export function renderWeatherCurrent(el, data) {
       <div>
         <div class="wc-icon">${w.icon}</div>
         <div class="wc-desc">${w.desc}</div>
-        <div class="wc-feels">Feels like ${Math.round(c.apparent_temperature)}°</div>
+        <div class="wc-feels">Feels like ${Math.round(c.apparent_temperature)}°${hi != null ? ` · H ${hi}° L ${lo}°` : ''}</div>
       </div>
     </div>
     <div class="wc-stats">
@@ -573,6 +574,196 @@ export function renderSunTimes(el, data) {
     </div>
     ${diff ? `<div class="sun-daylength">☀️ ${dayH}h ${dayM}m of daylight</div>` : ''}
   `;
+}
+
+// ─── Day Summary Widget ───────────────────────────────────────────
+export function renderWeatherDaySummary(el, data) {
+  el.classList.add('widget-glass', 'widget-day-summary');
+
+  if (!data?.hourly) { el.innerHTML = '<div class="wds-empty">No forecast</div>'; return; }
+
+  const { time, temperature_2m, precipitation_probability, weather_code } = data.hourly;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const pts = [];
+  for (let i = 0; i < time.length; i++) {
+    if (!time[i].startsWith(todayStr)) continue;
+    pts.push({ hour: new Date(time[i]).getHours(), temp: temperature_2m[i], precip: precipitation_probability[i], code: weather_code[i] });
+  }
+  if (!pts.length) { el.innerHTML = '<div class="wds-empty">No forecast</div>'; return; }
+
+  // H/L
+  let maxTemp = -Infinity, minTemp = Infinity, maxPt = pts[0], minPt = pts[0];
+  for (const p of pts) {
+    if (p.temp > maxTemp) { maxTemp = p.temp; maxPt = p; }
+    if (p.temp < minTemp) { minTemp = p.temp; minPt = p; }
+  }
+
+  // Precip window text
+  const THRESHOLD = 40;
+  let winStart = null, winCode = 0;
+  const precipLines = [];
+  function closeWin(endHour) {
+    if (winStart === null) return;
+    let type = 'Rain', icon = '🌧️';
+    if (winCode >= 71 && winCode <= 77)      { type = 'Snow';    icon = '❄️';  }
+    else if (winCode >= 85)                  { type = 'Storms';  icon = '⛈️'; }
+    else if (winCode >= 51 && winCode <= 57) { type = 'Drizzle'; icon = '🌦️'; }
+    precipLines.push(winStart === endHour
+      ? `${icon} ${type} ~${winStart % 12 || 12}${winStart < 12 ? 'am' : 'pm'}`
+      : `${icon} ${type} ${winStart % 12 || 12}${winStart < 12 ? 'am' : 'pm'}–${endHour % 12 || 12}${endHour < 12 ? 'am' : 'pm'}`);
+    winStart = null; winCode = 0;
+  }
+  for (const p of pts) {
+    if (p.precip >= THRESHOLD) {
+      if (winStart === null) { winStart = p.hour; winCode = p.code; }
+      else if (p.code > winCode) winCode = p.code;
+    } else closeWin(p.hour - 1);
+  }
+  closeWin(pts.at(-1).hour);
+
+  // SVG chart
+  const W = 240, H = 110;
+  const pL = 6, pR = 6, pT = 22, pB = 28;
+  const cW = W - pL - pR, cH = H - pT - pB;
+  const precipH = 14, tempH = cH - precipH - 4;
+  const hours = pts.length;
+  const tRange = (maxTemp - minTemp) || 1;
+
+  function xp(i)    { return pL + (i / (hours - 1)) * cW; }
+  function yt(temp) { return pT + tempH - ((temp - minTemp) / tRange) * tempH; }
+
+  // Smooth bezier path through temp points
+  const coords = pts.map((p, i) => [xp(i), yt(p.temp)]);
+  let path = `M ${coords[0][0].toFixed(1)} ${coords[0][1].toFixed(1)}`;
+  for (let i = 1; i < coords.length; i++) {
+    const [x0, y0] = coords[i - 1], [x1, y1] = coords[i];
+    const cpx = (x0 + x1) / 2;
+    path += ` C ${cpx.toFixed(1)} ${y0.toFixed(1)},${cpx.toFixed(1)} ${y1.toFixed(1)},${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  }
+  const areaBot = pT + cH;
+  const area = `${path} L ${coords.at(-1)[0].toFixed(1)} ${areaBot} L ${coords[0][0].toFixed(1)} ${areaBot} Z`;
+
+  // Precip bars
+  const bw = (cW / hours) * 0.75;
+  const bars = pts.map((p, i) => {
+    if (!p.precip) return '';
+    const bh = (p.precip / 100) * precipH;
+    return `<rect x="${(xp(i) - bw / 2).toFixed(1)}" y="${(areaBot + 4 + precipH - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="rgba(80,170,255,0.55)"/>`;
+  }).join('');
+
+  // Hour labels (every 6h)
+  const hrLabels = pts.filter(p => p.hour % 6 === 0).map((p, _, arr) => {
+    const i = pts.indexOf(p);
+    const label = p.hour === 0 ? '12a' : p.hour === 12 ? '12p' : p.hour < 12 ? `${p.hour}a` : `${p.hour - 12}p`;
+    return `<text x="${xp(i).toFixed(1)}" y="${(areaBot + precipH + 11).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="9">${label}</text>`;
+  }).join('');
+
+  // Now line
+  const nowHour = new Date().getHours();
+  const nowPt = pts.find(p => p.hour === nowHour);
+  const nowI  = nowPt ? pts.indexOf(nowPt) : -1;
+  const nowLine = nowI >= 0
+    ? `<line x1="${xp(nowI).toFixed(1)}" y1="${pT}" x2="${xp(nowI).toFixed(1)}" y2="${areaBot}" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="2,2"/>`
+    : '';
+
+  // H/L markers — nudge labels away from edges
+  const hxi = pts.indexOf(maxPt), lxi = pts.indexOf(minPt);
+  const hx = xp(hxi), lx = xp(lxi);
+  const hAnchor = hx < pL + 20 ? 'start' : hx > W - pR - 20 ? 'end' : 'middle';
+  const lAnchor = lx < pL + 20 ? 'start' : lx > W - pR - 20 ? 'end' : 'middle';
+
+  const svg = `<svg viewBox="0 0 ${W} ${H}" class="wds-svg" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="wdsg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(255,160,60,0.45)"/>
+        <stop offset="100%" stop-color="rgba(255,160,60,0)"/>
+      </linearGradient>
+    </defs>
+    ${bars}
+    <path d="${area}" fill="url(#wdsg)"/>
+    <path d="${path}" fill="none" stroke="#ffa040" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    ${nowLine}
+    <circle cx="${hx.toFixed(1)}" cy="${yt(maxTemp).toFixed(1)}" r="3" fill="#ffa040"/>
+    <text x="${hx.toFixed(1)}" y="${(yt(maxTemp) - 6).toFixed(1)}" text-anchor="${hAnchor}" fill="#ffd080" font-size="12" font-weight="700">H ${Math.round(maxTemp)}°</text>
+    <circle cx="${lx.toFixed(1)}" cy="${yt(minTemp).toFixed(1)}" r="3" fill="#60b8ff"/>
+    <text x="${lx.toFixed(1)}" y="${(yt(minTemp) + 14).toFixed(1)}" text-anchor="${lAnchor}" fill="#60b8ff" font-size="12" font-weight="700">L ${Math.round(minTemp)}°</text>
+    ${hrLabels}
+  </svg>`;
+
+  const precipHtml = precipLines.length
+    ? `<div class="wds-precip-lines">${precipLines.map(l => `<span class="wds-precip-item">${l}</span>`).join('')}</div>`
+    : '';
+
+  el.innerHTML = `<div class="wds-hdr">Today</div>${svg}${precipHtml}`;
+}
+
+// ─── Next Precipitation Widget ───────────────────────────────────
+export function renderWeatherNextPrecip(el, data) {
+  el.classList.add('widget-glass', 'widget-next-precip');
+
+  if (!data?.hourly) {
+    el.innerHTML = `<div class="nxp-label">Next Precip</div><div class="nxp-value">—</div>`;
+    return;
+  }
+
+  const threshold = 30;
+  const now = Date.now();
+  const { time, precipitation_probability, weather_code } = data.hourly;
+
+  let idx = -1;
+  for (let i = 0; i < time.length; i++) {
+    if (new Date(time[i]).getTime() <= now) continue;
+    if (precipitation_probability[i] >= threshold) { idx = i; break; }
+  }
+
+  if (idx === -1) {
+    // Fallback: check daily max probabilities
+    const daily = data.daily;
+    let fallbackDay = -1, fallbackProb = 0;
+    if (daily?.time) {
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      for (let i = 0; i < daily.time.length; i++) {
+        if (daily.time[i] <= todayStr) continue;
+        if ((daily.precipitation_probability_max?.[i] ?? 0) >= threshold) {
+          fallbackDay = i; fallbackProb = daily.precipitation_probability_max[i]; break;
+        }
+      }
+    }
+    if (fallbackDay === -1) {
+      el.innerHTML = `
+        <div class="nxp-icon">☀️</div>
+        <div class="nxp-label">Next Precip</div>
+        <div class="nxp-value">None forecast</div>
+        <div class="nxp-sub">5+ days out</div>`;
+      return;
+    }
+    const dayLabel = new Date(daily.time[fallbackDay] + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    el.innerHTML = `
+      <div class="nxp-icon">🌧️</div>
+      <div class="nxp-label">Next Precip</div>
+      <div class="nxp-value">${dayLabel}</div>
+      <div class="nxp-sub">${fallbackProb}% chance</div>`;
+    return;
+  }
+
+  const code = weather_code[idx];
+  let icon = '🌧️', type = 'Rain';
+  if (code >= 71 && code <= 77)  { icon = '❄️';  type = 'Snow';   }
+  if (code >= 85 && code <= 86)  { icon = '🌨️'; type = 'Snow';   }
+  if (code >= 95)                 { icon = '⛈️'; type = 'Storm';  }
+  if (code >= 51 && code <= 57)  { icon = '🌦️'; type = 'Drizzle'; }
+
+  const diffMs = new Date(time[idx]) - now;
+  const diffH  = Math.round(diffMs / 3600000);
+  const timeStr = diffH < 1 ? 'Under 1h' : diffH < 24 ? `In ${diffH}h` : `In ${Math.round(diffH / 24)}d`;
+  const prob  = precipitation_probability[idx];
+  const atStr = new Date(time[idx]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  el.innerHTML = `
+    <div class="nxp-icon">${icon}</div>
+    <div class="nxp-label">Next ${type}</div>
+    <div class="nxp-value">${prob}% chance</div>
+    <div class="nxp-sub">${timeStr} · ${atStr}</div>`;
 }
 
 // ─── Gauge Widget ────────────────────────────────────────────────
@@ -1270,38 +1461,65 @@ export function renderYoLinkTemp(el, sensor, history, hours, data) {
 
   function sparkline(pts, w, h) {
     if (pts.length < 2) return '';
-    const vals = pts.map(p => p.v);
-    const min = Math.min(...vals);
-    const max = Math.max(...vals);
-    const range = max - min || 1;
-    const pad = 4;
-    const points = pts.map((p, i) => {
-      const x = (i / (pts.length - 1)) * w;
-      const y = h - pad - ((p.v - min) / range) * (h - pad * 2);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    // Gradient fill area
-    const first = pts[0], last = pts[pts.length - 1];
-    const fx = 0, lx = w;
-    const fy = h - pad - ((first.v - min) / range) * (h - pad * 2);
-    const ly = h - pad - ((last.v - min) / range) * (h - pad * 2);
-    const area = `M ${fx} ${h} L ${fx} ${fy.toFixed(1)} ` +
-      pts.map((p, i) => {
-        const x = (i / (pts.length - 1)) * w;
-        const y = h - pad - ((p.v - min) / range) * (h - pad * 2);
-        return `L ${x.toFixed(1)} ${y.toFixed(1)}`;
-      }).join(' ') + ` L ${lx} ${h} Z`;
+
+    // Downsample into ~40 evenly-spaced buckets to smooth out sensor noise
+    const BUCKETS = 40;
+    const bucketSize = Math.max(1, Math.floor(pts.length / BUCKETS));
+    const smoothed = [];
+    for (let i = 0; i < pts.length; i += bucketSize) {
+      const slice = pts.slice(i, i + bucketSize);
+      const avg = slice.reduce((s, p) => s + p.v, 0) / slice.length;
+      smoothed.push({ v: avg, t: slice[0].t });
+    }
+    if (smoothed.at(-1) !== pts.at(-1)) smoothed.push(pts.at(-1));
+
+    const vals = smoothed.map(p => p.v);
+    const rawVals = pts.map(p => p.v);
+    const minVal = Math.min(...rawVals);
+    const maxVal = Math.max(...rawVals);
+    const range = maxVal - minVal || 1;
+    const pT = 14, pB = 6, pL = 4, pR = 4;
+    const cW = w - pL - pR, cH = h - pT - pB;
+
+    function xp(i) { return pL + (i / (smoothed.length - 1)) * cW; }
+    function yp(v) { return pT + cH - ((v - minVal) / range) * cH; }
+
+    // Smooth cubic bezier through downsampled points
+    const coords = smoothed.map((p, i) => [xp(i), yp(p.v)]);
+    let linePath = `M ${coords[0][0].toFixed(1)} ${coords[0][1].toFixed(1)}`;
+    for (let i = 1; i < coords.length; i++) {
+      const [x0, y0] = coords[i - 1], [x1, y1] = coords[i];
+      const cpx = (x0 + x1) / 2;
+      linePath += ` C ${cpx.toFixed(1)} ${y0.toFixed(1)},${cpx.toFixed(1)} ${y1.toFixed(1)},${x1.toFixed(1)} ${y1.toFixed(1)}`;
+    }
+    const bot = pT + cH;
+    const areaPath = `${linePath} L ${coords.at(-1)[0].toFixed(1)} ${bot} L ${coords[0][0].toFixed(1)} ${bot} Z`;
+
+    // H/L markers from raw data, mapped to smoothed x position
+    const maxRawI = rawVals.indexOf(maxVal), minRawI = rawVals.indexOf(minVal);
+    const hFrac = maxRawI / (pts.length - 1), lFrac = minRawI / (pts.length - 1);
+    const hx = pL + hFrac * cW, hy = yp(maxVal);
+    const lx = pL + lFrac * cW, ly = yp(minVal);
+    const hAnchor = hx < pL + 20 ? 'start' : hx > w - pR - 20 ? 'end' : 'middle';
+    const lAnchor = lx < pL + 20 ? 'start' : lx > w - pR - 20 ? 'end' : 'middle';
+
+    // "Now" dot at rightmost point
+    const nowX = coords.at(-1)[0], nowY = coords.at(-1)[1];
+
     return `
       <defs>
         <linearGradient id="sg-${sensor.id}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3"/>
-          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
         </linearGradient>
       </defs>
-      <path d="${area}" fill="url(#sg-${sensor.id})"/>
-      <polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="2" y="${(h - 2).toFixed(0)}" class="spark-label">${min.toFixed(1)}°</text>
-      <text x="${(w - 2).toFixed(0)}" y="${(h - 2).toFixed(0)}" class="spark-label" text-anchor="end">${max.toFixed(1)}°</text>
+      <path d="${areaPath}" fill="url(#sg-${sensor.id})"/>
+      <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="2.5" fill="var(--accent)"/>
+      <text x="${hx.toFixed(1)}" y="${(hy - 5).toFixed(1)}" text-anchor="${hAnchor}" class="spark-label spark-label-h">${maxVal.toFixed(1)}°</text>
+      <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2.5" fill="rgba(150,210,255,0.8)"/>
+      <text x="${lx.toFixed(1)}" y="${(ly + 10).toFixed(1)}" text-anchor="${lAnchor}" class="spark-label spark-label-l">${minVal.toFixed(1)}°</text>
+      <circle cx="${nowX.toFixed(1)}" cy="${nowY.toFixed(1)}" r="3.5" fill="white" opacity="0.9"/>
     `;
   }
 
@@ -1321,7 +1539,7 @@ export function renderYoLinkTemp(el, sensor, history, hours, data) {
 
   el.innerHTML = `
     ${banner}
-    <div class="ylt-name ${offline ? 'ylt-offline' : ''}">${sensor.name}${offline ? ' · offline' : ''}</div>
+    <div class="ylt-name ${offline ? 'ylt-offline' : ''}">${sensor.name} <span class="ylt-local">(Local Reading)</span>${offline ? ' · offline' : ''}</div>
     <div class="ylt-main">
       <span class="ylt-temp">${sensor.temp != null ? sensor.temp.toFixed(1) : '--'}°${sensor.unit}</span>
       <span class="ylt-hum">💧 ${sensor.humidity != null ? sensor.humidity.toFixed(0) : '--'}%</span>
@@ -1336,6 +1554,132 @@ export function renderYoLinkTemp(el, sensor, history, hours, data) {
       <button class="ylt-range ${hours === 720 ? 'ylt-range-active' : ''}" data-h="720">30d</button>
     </div>
   `;
+}
+
+// ─── YoLink Temp Bars (compact layout with vertical bar chart) ────
+export function renderYoLinkTempBars(el, sensor, history, hours, data, cfg = {}) {
+  el.classList.add('widget-glass', 'widget-ylt-bars');
+
+  const banner = ylinkStatusBanner(data);
+
+  if (!sensor) {
+    el.innerHTML = banner + '<div class="ylt-empty">No data</div>';
+    return;
+  }
+
+  const readings = history?.[sensor.id]?.readings ?? [];
+  const offline  = sensor.online === false;
+
+  function fmtReportAt(ms) {
+    if (!ms) return '';
+    const now  = new Date();
+    const mins = Math.floor((now - new Date(ms)) / 60000);
+    if (mins < 1)  return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    return new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function barChart(pts) {
+    if (pts.length < 2) return '<text x="50" y="50" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8">No data</text>';
+
+    const BARS = Math.min(36, pts.length);
+    const bucketSize = Math.max(1, Math.floor(pts.length / BARS));
+    const buckets = [];
+    for (let i = 0; i < pts.length; i += bucketSize) {
+      const slice = pts.slice(i, i + bucketSize);
+      const avgV = slice.reduce((s, p) => s + p.v, 0) / slice.length;
+      const humSlice = slice.filter(p => p.h != null);
+      const avgH = humSlice.length ? humSlice.reduce((s, p) => s + p.h, 0) / humSlice.length : null;
+      buckets.push({ v: avgV, h: avgH });
+    }
+
+    const dataMin = Math.min(...buckets.map(b => b.v));
+    const dataMax = Math.max(...buckets.map(b => b.v));
+    const dataRange = dataMax - dataMin;
+    const effectiveRange = Math.max(dataRange, cfg.minRange ?? 0) || 1;
+    const mid = (dataMax + dataMin) / 2;
+    const dispMin = effectiveRange > dataRange ? mid - effectiveRange / 2 : dataMin;
+    const rangeV = effectiveRange;
+
+    const W = 100, gap = 1;
+    const barW = (W - gap * (buckets.length - 1)) / buckets.length;
+    const pT = 12, pB = 4;
+    const chartH = 100 - pT - pB; // 84
+
+    function tempColor(v) {
+      const t = (v - dispMin) / rangeV;
+      const r = Math.round(79  + t * (255 - 79));
+      const g = Math.round(195 + t * (112 - 195));
+      const b = Math.round(247 + t * (64  - 247));
+      return `rgb(${r},${g},${b})`;
+    }
+
+    const bars = buckets.map((b, i) => {
+      const x = i * (barW + gap);
+      const barH = Math.max(2, ((b.v - dispMin) / rangeV) * chartH);
+      const y = pT + chartH - barH;
+      const isLast = i === buckets.length - 1;
+      const color = isLast ? 'white' : tempColor(b.v);
+      const opacity = isLast ? '1' : '0.75';
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="1" fill="${color}" opacity="${opacity}"/>`;
+    }).join('');
+
+    const maxI = buckets.findIndex(b => b.v === dataMax);
+    const minI = buckets.findIndex(b => b.v === dataMin);
+    const hxRaw = maxI * (barW + gap) + barW / 2;
+    const lxRaw = minI * (barW + gap) + barW / 2;
+    const hx = hxRaw.toFixed(1);
+    const lx = lxRaw.toFixed(1);
+    const hAnchor = hxRaw < 12 ? 'start' : hxRaw > W - 12 ? 'end' : 'middle';
+    const lAnchor = lxRaw < 12 ? 'start' : lxRaw > W - 12 ? 'end' : 'middle';
+    const hy = Math.max(pT + 2, pT + chartH - ((dataMax - dispMin) / rangeV) * chartH - 4).toFixed(1);
+    const ly = (pT + chartH + 10).toFixed(1);
+
+    // Humidity line overlaid on the same coordinate space as the bars
+    const humPairs = buckets
+      .map((b, i) => b.h != null ? [i * (barW + gap) + barW / 2, b.h] : null)
+      .filter(Boolean);
+
+    let humSVG = '';
+    if (humPairs.length >= 2) {
+      const humVals = humPairs.map(p => p[1]);
+      const minH = Math.min(...humVals);
+      const maxH = Math.max(...humVals);
+      const rangeH = maxH - minH || 1;
+      const coords = humPairs.map(([x, h]) => [x, pT + chartH - ((h - minH) / rangeH) * chartH]);
+      let linePath = `M ${coords[0][0].toFixed(1)} ${coords[0][1].toFixed(1)}`;
+      for (let i = 1; i < coords.length; i++) {
+        const [x0, y0] = coords[i - 1], [x1, y1] = coords[i];
+        const cpx = (x0 + x1) / 2;
+        linePath += ` C ${cpx.toFixed(1)} ${y0.toFixed(1)},${cpx.toFixed(1)} ${y1.toFixed(1)},${x1.toFixed(1)} ${y1.toFixed(1)}`;
+      }
+
+      humSVG = `<path d="${linePath}" fill="none" stroke="rgba(100,200,255,0.8)" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+
+    return `
+      ${bars}
+      <text x="${hx}" y="${hy}" text-anchor="${hAnchor}" class="spark-label spark-label-h">${dataMax.toFixed(0)}°</text>
+      <text x="${lx}" y="${ly}" text-anchor="${lAnchor}" class="spark-label spark-label-l">${dataMin.toFixed(0)}°</text>
+      ${humSVG}`;
+  }
+
+  const reportedLabel = sensor.reportAt
+    ? `${fmtReportAt(sensor.reportAt)}${sensor.stale ? ' (Cache)' : ''}` : '';
+
+  el.innerHTML = `
+    ${banner}
+    <div class="ytb-layout">
+      <div class="ytb-left">
+        <div class="ytb-name ${offline ? 'ylt-offline' : ''}">${sensor.name}</div>
+        <div class="ytb-temp">${sensor.temp != null ? sensor.temp.toFixed(1) : '--'}°${sensor.unit}</div>
+        <div class="ytb-hum">💧 ${sensor.humidity != null ? sensor.humidity.toFixed(0) : '--'}%</div>
+        ${reportedLabel ? `<div class="ytb-reported">${reportedLabel}</div>` : ''}
+      </div>
+      <svg class="ytb-chart" viewBox="0 0 100 100" preserveAspectRatio="none">
+        ${barChart(readings)}
+      </svg>
+    </div>`;
 }
 
 // ─── YoLink Door (single sensor square) ──────────────────────────
@@ -1372,7 +1716,7 @@ export function renderYoLinkDoor(el, sensor, cfg = {}, data) {
       d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
-  const recentChange = sensor.stateChangedAt && (Date.now() - sensor.stateChangedAt) < 10 * 60 * 1000;
+  const recentChange = sensor.stateChangedAt && (Date.now() - sensor.stateChangedAt) < 60 * 60 * 1000;
 
   el.innerHTML = `
     <div class="yld-name ${offline ? 'ylt-offline' : ''}">${sensor.name.replace(/\s+sensor$/i, '')}</div>
@@ -2150,4 +2494,191 @@ export function renderMovieStreaming(el, data) {
     return `<div class="mov-row">${poster}<div class="mov-info"><span class="mov-title">${m.title}</span><div class="mov-meta">${stars}${badges}</div></div></div>`;
   }).join('');
   el.innerHTML = `<div class="mov-wrap"><div class="mov-heading">New to Streaming</div>${rows || '<div class="mov-unavail">No listings</div>'}</div>`;
+}
+
+// ─── Unifi Network Widget ────────────────────────────────────────
+function unifiGuard(el, data, cls) {
+  el.classList.add('widget-glass', cls);
+  if (!data || data.loading) { el.innerHTML = '<div class="unifi-empty">Loading…</div>'; return false; }
+  if (data.disabled)         { el.innerHTML = '<div class="unifi-empty">Unifi not configured</div>'; return false; }
+  return true;
+}
+
+function fmtBytes(bps) {
+  if (bps < 1024)       return `${Math.round(bps)} B/s`;
+  if (bps < 1024*1024)  return `${(bps/1024).toFixed(0)} KB/s`;
+  return `${(bps/1024/1024).toFixed(1)} MB/s`;
+}
+
+export function renderUnifiStats(el, data) {
+  if (!unifiGuard(el, data, 'widget-unifi-stats')) return;
+  const apsTotal  = (data.aps || []).length;
+  const apsOnline = data.apsOnline ?? apsTotal;
+  const allGood   = apsOnline === apsTotal && (data.issues || []).length === 0;
+  const scoreColor = (data.avgScore ?? 100) >= 80 ? 'var(--accent-green)' : (data.avgScore ?? 100) >= 60 ? '#f0c040' : 'var(--accent-red)';
+
+  const wan = data.wanStatus;
+  const wanKnown = wan != null;
+  const wanUp = !wanKnown || wan.up;
+  const wanLabel = wanKnown
+    ? (wan.up ? `✓ WAN · ${wan.latency != null ? wan.latency + ' ms' : 'up'}` : '✗ WAN down')
+    : null;
+
+  el.innerHTML = `
+    <div class="ust-grid">
+      <div class="ust-stat">
+        <div class="ust-val">${data.total ?? 0}</div>
+        <div class="ust-lbl">Devices</div>
+      </div>
+      <div class="ust-stat">
+        <div class="ust-val ${apsOnline < apsTotal ? 'ust-warn' : ''}">${apsOnline}<span class="ust-total">/${apsTotal}</span></div>
+        <div class="ust-lbl">AP's Online</div>
+      </div>
+      <div class="ust-stat">
+        <div class="ust-val" style="color:${scoreColor}">${data.avgScore ?? '—'}<span class="ust-total">%</span></div>
+        <div class="ust-lbl">Avg Score</div>
+      </div>
+      <div class="ust-stat">
+        <div class="ust-val ust-small">${fmtBytes(data.totalTx ?? 0)}</div>
+        <div class="ust-lbl">↑ Upload</div>
+      </div>
+      <div class="ust-stat">
+        <div class="ust-val ust-small">${fmtBytes(data.totalRx ?? 0)}</div>
+        <div class="ust-lbl">↓ Download</div>
+      </div>
+    </div>
+    <div class="ust-health ${allGood && wanUp ? 'ust-ok' : 'ust-alert'}">
+      ${wanLabel ? `<span class="ust-wan ${wan.up ? '' : 'ust-warn'}">${wanLabel}</span><span class="ust-sep">·</span>` : ''}
+      ${allGood ? '✓ Network healthy' : `⚠ ${(data.issues||[]).length} client${(data.issues||[]).length !== 1 ? 's' : ''} with issues`}
+    </div>`;
+}
+
+export function renderUnifiAPs(el, data) {
+  if (!unifiGuard(el, data, 'widget-unifi-aps')) return;
+
+  const rows = (data.aps || []).map(ap => {
+    const online = ap.state === 'online';
+    const uptimeH = Math.round((ap.uptime || 0) / 3600);
+    const upStr = uptimeH < 24 ? `${uptimeH}h` : `${Math.floor(uptimeH/24)}d`;
+    const score = ap.avgScore;
+    const scoreColor = score == null ? 'var(--text-secondary)'
+      : score >= 80 ? 'var(--accent-green)' : score >= 60 ? '#f0c040' : 'var(--accent-red)';
+    const scoreBar = score != null
+      ? `<span class="uap-score-bar"><span class="uap-score-fill" style="width:${score}%;background:${scoreColor}"></span></span>`
+      : '';
+    return `
+      <div class="uap-row">
+        <span class="uap-dot ${online ? 'uap-online' : 'uap-offline'}"></span>
+        <span class="uap-name">${ap.name}</span>
+        ${scoreBar}
+        <span class="uap-score-val" style="color:${scoreColor}">${score != null ? score + '%' : '—'}</span>
+        <span class="uap-clients">${ap.clients} <span class="uap-clbl">clients</span></span>
+        <span class="uap-uptime">${upStr}</span>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="unifi-hdr">Access Points · Signal Health</div>
+    <div class="uap-list">${rows}</div>`;
+}
+
+export function renderUnifiClients(el, data) {
+  if (!unifiGuard(el, data, 'widget-unifi-clients')) return;
+
+  const issues  = data.issues || [];
+  const offline = data.apsOffline || [];
+
+  const apRows = offline.map(ap => `
+    <div class="uiss-row">
+      <span class="uiss-icon">📡</span>
+      <span class="uiss-name">${ap.name}</span>
+      <span class="uiss-detail uiss-bad">Offline</span>
+    </div>`).join('');
+
+  const clRows = issues.map(c => `
+    <div class="uiss-row">
+      <span class="uiss-icon">💻</span>
+      <span class="uiss-name">${c.hostname}</span>
+      <span class="uiss-detail">${c.ap}</span>
+      <span class="uiss-score uiss-bad">${c.score}%</span>
+    </div>`).join('');
+
+  const allClear = !offline.length && !issues.length;
+
+  el.innerHTML = `
+    <div class="unifi-hdr">Issues</div>
+    ${allClear
+      ? '<div class="uiss-clear">✓ All devices healthy</div>'
+      : `<div class="uiss-list">${apRows}${clRows}</div>`
+    }`;
+}
+
+export function renderUnifiBandwidth(el, data) {
+  if (!unifiGuard(el, data, 'widget-unifi-bandwidth')) return;
+
+  const top = (data.topBandwidth || []).filter(c => c.total > 0);
+  const maxTotal = top[0]?.total || 1;
+
+  const rows = top.map(c => {
+    const pct = Math.round((c.total / maxTotal) * 100);
+    const txPct = Math.round((c.txRate / c.total) * pct);
+    const rxPct = pct - txPct;
+    const bandLabel = c.band === '2.4' ? '2.4G' : c.band === '6' ? '6G' : '5G';
+    const bandColor = c.band === '2.4' ? '#f0c040' : c.band === '6' ? 'var(--accent-green)' : 'var(--accent)';
+    return `
+      <div class="ubw-row">
+        <span class="ubw-name">${c.hostname}</span>
+        <span class="ubw-band" style="color:${bandColor}">${bandLabel}</span>
+        <div class="ubw-bar">
+          <span class="ubw-fill ubw-tx" style="width:${txPct}%"></span>
+          <span class="ubw-fill ubw-rx" style="width:${rxPct}%"></span>
+        </div>
+        <span class="ubw-val">${fmtBytes(c.total)}</span>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="unifi-hdr">Top Bandwidth</div>
+    ${rows ? `<div class="ubw-list">${rows}</div>` : '<div class="uiss-clear">No active traffic</div>'}`;
+}
+
+// ─── News Feed ────────────────────────────────────────────────────
+export async function renderNewsFeed(el, cfg) {
+  el.className = 'widget widget-news-feed';
+  const feedUrl   = cfg.url || '';
+  const accentColor = cfg.color || '#e53935';
+  const siteName  = cfg.name || 'News';
+  const maxItems  = cfg.maxItems || 6;
+
+  async function load() {
+    let data;
+    try {
+      const r = await fetch(`/api/rss?url=${encodeURIComponent(feedUrl)}`);
+      data = await r.json();
+    } catch { data = null; }
+
+    if (!data || data.error || !data.items?.length) {
+      el.innerHTML = `<div class="nf-error">Unable to load feed</div>`;
+      return;
+    }
+
+    const items = data.items.slice(0, maxItems);
+
+    const itemsHtml = items.map(item => `
+      <div class="nf-item">
+        <div class="nf-item-title">${item.title}</div>
+        ${item.excerpt ? `<div class="nf-item-excerpt">${item.excerpt.slice(0, 160)}</div>` : ''}
+      </div>`).join('');
+
+    el.innerHTML = `
+      <div class="nf-masthead" style="border-color:${accentColor}">
+        <span class="nf-site" style="color:${accentColor}">${siteName}</span>
+        <span class="nf-updated">Updated ${new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</span>
+      </div>
+      <div class="nf-accent-bar" style="background:${accentColor}"></div>
+      <div class="nf-list">${itemsHtml}</div>`;
+  }
+
+  await load();
+  setInterval(load, 10 * 60 * 1000);
 }

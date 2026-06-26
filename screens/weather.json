@@ -44,7 +44,7 @@
     {
       "type": "image",
       "id": "radar",
-      "src": "/api/proxy-image?url=https%3A%2F%2Fradar.weather.gov%2Fridge%2Fstandard%2FKCAE_loop.gif",
+      "src": "/api/proxy-image?url=https%3A%2F%2Fradar.weather.gov%2Fridge%2Fstandard%2FKGSP_loop.gif",
       "refresh": 300,
       "style": {
         "top": "13%", "left": "67%", "width": "33%", "height": "60%"
