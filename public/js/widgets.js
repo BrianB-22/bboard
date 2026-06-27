@@ -1595,28 +1595,45 @@ export function renderYoLinkTempBars(el, sensor, history, hours, data, cfg = {})
 
     const dataMin = Math.min(...buckets.map(b => b.v));
     const dataMax = Math.max(...buckets.map(b => b.v));
-    const dataRange = dataMax - dataMin;
-    const effectiveRange = Math.max(dataRange, cfg.minRange ?? 0) || 1;
-    const mid = (dataMax + dataMin) / 2;
-    const dispMin = effectiveRange > dataRange ? mid - effectiveRange / 2 : dataMin;
-    const rangeV = effectiveRange;
+
+    // Absolute scale: -20°F = chart bottom, 110°F = chart top
+    const ABS_MIN = -20, ABS_RANGE = 130;
 
     const W = 100, gap = 1;
     const barW = (W - gap * (buckets.length - 1)) / buckets.length;
     const pT = 12, pB = 4;
     const chartH = 100 - pT - pB; // 84
 
+    function absH(v) {
+      return Math.max(0, Math.min(1, (v - ABS_MIN) / ABS_RANGE)) * chartH;
+    }
+
+    // Physiological scale: blue (frozen) → cyan (cold) → green (comfortable) → orange → red (hot)
     function tempColor(v) {
-      const t = (v - dispMin) / rangeV;
-      const r = Math.round(79  + t * (255 - 79));
-      const g = Math.round(195 + t * (112 - 195));
-      const b = Math.round(247 + t * (64  - 247));
-      return `rgb(${r},${g},${b})`;
+      const stops = [
+        //  °F   hue  lit
+        [  0,  220,  62],   // 0°F  — deep blue
+        [ 32,  185,  62],   // 32°F — cyan (freezing point)
+        [ 65,  120,  60],   // 65°F — green (comfortable starts)
+        [ 78,  110,  60],   // 78°F — yellow-green (warm starts)
+        [ 90,   20,  55],   // 90°F — orange (hot)
+        [ 95,    0,  52],   // 95°F — red (extreme)
+      ];
+      if (v <= stops[0][0]) return `hsl(${stops[0][1]},100%,${stops[0][2]}%)`;
+      const last = stops[stops.length - 1];
+      if (v >= last[0]) return `hsl(${last[1]},100%,${last[2]}%)`;
+      for (let i = 0; i < stops.length - 1; i++) {
+        const [t0, h0, l0] = stops[i], [t1, h1, l1] = stops[i + 1];
+        if (v <= t1) {
+          const t = (v - t0) / (t1 - t0);
+          return `hsl(${Math.round(h0 + t * (h1 - h0))},100%,${Math.round(l0 + t * (l1 - l0))}%)`;
+        }
+      }
     }
 
     const bars = buckets.map((b, i) => {
       const x = i * (barW + gap);
-      const barH = Math.max(2, ((b.v - dispMin) / rangeV) * chartH);
+      const barH = Math.max(2, absH(b.v));
       const y = pT + chartH - barH;
       const isLast = i === buckets.length - 1;
       const color = isLast ? 'white' : tempColor(b.v);
@@ -1632,8 +1649,8 @@ export function renderYoLinkTempBars(el, sensor, history, hours, data, cfg = {})
     const lx = lxRaw.toFixed(1);
     const hAnchor = hxRaw < 12 ? 'start' : hxRaw > W - 12 ? 'end' : 'middle';
     const lAnchor = lxRaw < 12 ? 'start' : lxRaw > W - 12 ? 'end' : 'middle';
-    const hy = Math.max(pT + 2, pT + chartH - ((dataMax - dispMin) / rangeV) * chartH - 4).toFixed(1);
-    const ly = (pT + chartH + 10).toFixed(1);
+    const hy = Math.max(pT + 2, pT + chartH - absH(dataMax) - 4).toFixed(1);
+    const ly = Math.min(pT + chartH - 2, pT + chartH - absH(dataMin) - 3).toFixed(1);
 
     // Humidity line overlaid on the same coordinate space as the bars
     const humPairs = buckets
@@ -1641,7 +1658,7 @@ export function renderYoLinkTempBars(el, sensor, history, hours, data, cfg = {})
       .filter(Boolean);
 
     let humSVG = '';
-    if (humPairs.length >= 2) {
+    if (cfg.humidity !== false && humPairs.length >= 2) {
       const humVals = humPairs.map(p => p[1]);
       const minH = Math.min(...humVals);
       const maxH = Math.max(...humVals);
@@ -1717,11 +1734,87 @@ export function renderYoLinkDoor(el, sensor, cfg = {}, data) {
   }
 
   const recentChange = sensor.stateChangedAt && (Date.now() - sensor.stateChangedAt) < 60 * 60 * 1000;
+  const lowBat = sensor.alarm?.lowBattery === true || (sensor.battery != null && parseInt(sensor.battery) <= 1);
 
   el.innerHTML = `
     <div class="yld-name ${offline ? 'ylt-offline' : ''}">${sensor.name.replace(/\s+sensor$/i, '')}</div>
     <div class="yld-state ${offline ? 'yld-unknown' : sensor.open ? 'yld-open' : 'yld-closed'}">${offline ? 'OFFLINE' : sensor.open ? 'OPEN' : 'CLOSED'}</div>
     <div class="yld-changed ${stale ? 'yl-status-warn' : recentChange ? 'yld-recent' : ''}">${stale ? '⚠ stale · ' : ''}${fmtChanged(sensor.stateChangedAt)}</div>
+    ${lowBat ? '<div class="yld-lowbat">🔋 Low battery</div>' : ''}
+  `;
+}
+
+// ─── YoLink Leak Sensor ───────────────────────────────────────────
+export function renderYoLinkLeak(el, sensor, cfg = {}, data) {
+  // Auto-mode: no device specified → render all LeakSensors from poll data
+  if (!cfg.device && !cfg.deviceId) {
+    el.classList.add('widget-glass', 'widget-yl-leak-all');
+    const sensors = data?.sensors?.filter(s => s.type === 'LeakSensor') ?? [];
+    if (!sensors.length) {
+      el.innerHTML = '<div class="yl-leak-empty">No leak sensors found</div>';
+      return;
+    }
+    function fmtAge(ms) {
+      if (!ms) return '';
+      const d = new Date(ms), now = new Date();
+      const mins = Math.floor((now - d) / 60000);
+      const hrs  = Math.floor((now - d) / 3600000);
+      if (mins < 1)  return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      if (hrs < 24 && d.toDateString() === now.toDateString())
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+        d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    el.innerHTML = sensors.map(s => {
+      const offline    = s.online === false;
+      const stateClass = offline ? 'yld-unknown' : s.leak ? 'yld-leak' : 'yld-dry';
+      const label      = offline ? 'OFFLINE'      : s.leak ? '💧 LEAK'  : 'DRY';
+      const age        = fmtAge(s.stateChangedAt);
+      const recentLeak = s.stateChangedAt && (Date.now() - new Date(s.stateChangedAt)) < 60 * 60 * 1000;
+      const lowBat     = s.battery != null && parseInt(s.battery) <= 1;
+      return `<div class="yl-leak-cell">
+        <div class="yld-name">${s.name.replace(/\s+sensor$/i, '')}</div>
+        <div class="yld-state ${stateClass}">${label}</div>
+        ${age ? `<div class="yld-changed ${recentLeak ? 'yld-recent' : ''}">${age}</div>` : ''}
+        ${lowBat ? '<div class="yld-lowbat">🔋 Low battery</div>' : ''}
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  // Single-sensor mode (device name or ID specified in config)
+  el.classList.add('widget-glass', 'widget-yl-door', 'widget-yl-leak');
+  const offline  = !sensor || sensor.online === false;
+  const hasError = !data || data.error || data._fetchError;
+
+  if (!sensor) {
+    el.innerHTML = `
+      <div class="yld-name">${cfg.device || '—'}</div>
+      <div class="yld-state yld-unknown">${hasError ? '⚠' : '?'}</div>
+      ${hasError ? '<div class="yld-changed yl-status-err">No connection</div>' : ''}
+    `;
+    return;
+  }
+
+  function fmtChanged(ms) {
+    if (!ms) return '';
+    const d = new Date(ms), now = new Date();
+    const mins = Math.floor((now - d) / 60000);
+    const hrs  = Math.floor((now - d) / 3600000);
+    if (mins < 1)  return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (hrs < 24 && d.toDateString() === now.toDateString())
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  const recentChange = sensor.stateChangedAt && (Date.now() - new Date(sensor.stateChangedAt)) < 60 * 60 * 1000;
+  el.innerHTML = `
+    <div class="yld-name ${offline ? 'ylt-offline' : ''}">${sensor.name.replace(/\s+sensor$/i, '')}</div>
+    <div class="yld-state ${offline ? 'yld-unknown' : sensor.leak ? 'yld-leak' : 'yld-dry'}">${offline ? 'OFFLINE' : sensor.leak ? '💧 LEAK' : 'DRY'}</div>
+    <div class="yld-changed ${recentChange ? 'yld-recent' : ''}">${fmtChanged(sensor.stateChangedAt)}</div>
   `;
 }
 

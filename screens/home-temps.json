@@ -2,11 +2,11 @@
   "id": "home-temps",
   "name": "Home Temps",
   "widgets": [
-    { "type": "yolink-temp-bars", "id": "yl-chest-freezer",   "device": "Chest Freezer",   "minRange": 10, "style": { "top": "1%",  "left": "0.5%",  "width": "32.5%", "height": "48%" } },
-    { "type": "yolink-temp-bars", "id": "yl-garage-fridge",   "device": "Garage Fridge",   "minRange": 10, "style": { "top": "1%",  "left": "34%",   "width": "32.5%", "height": "48%" } },
-    { "type": "yolink-temp-bars", "id": "yl-outdoor-temp",    "device": "Outdoor Temp",    "minRange": 20, "style": { "top": "1%",  "left": "67.5%", "width": "32%",   "height": "48%" } },
-    { "type": "yolink-temp-bars", "id": "yl-kitchen-fridge",  "device": "Kitchen Fridge",  "minRange": 10, "style": { "top": "51%", "left": "0.5%",  "width": "32.5%", "height": "48%" } },
-    { "type": "yolink-temp-bars", "id": "yl-upright-freezer", "device": "Upright Freezer", "minRange": 10, "style": { "top": "51%", "left": "34%",   "width": "32.5%", "height": "48%" } },
-    { "type": "yolink-temp-bars", "id": "yl-house",           "device": "House",            "minRange": 10, "style": { "top": "51%", "left": "67.5%", "width": "32%",   "height": "48%" } }
+    { "type": "yolink-temp-bars", "id": "yl-kitchen-fridge",  "device": "Kitchen Fridge",  "minRange": 10, "humidity": false, "style": { "top": "1%",  "left": "0.5%",  "width": "32.5%", "height": "48%" } },
+    { "type": "yolink-temp-bars", "id": "yl-garage-fridge",   "device": "Garage Fridge",   "minRange": 10, "humidity": false, "style": { "top": "1%",  "left": "34%",   "width": "32.5%", "height": "48%" } },
+    { "type": "yolink-temp-bars", "id": "yl-outdoor-temp",    "device": "Outdoor Temp",    "minRange": 20, "humidity": false, "style": { "top": "1%",  "left": "67.5%", "width": "32%",   "height": "48%" } },
+    { "type": "yolink-temp-bars", "id": "yl-chest-freezer",   "device": "Chest Freezer",   "minRange": 10, "humidity": false, "style": { "top": "51%", "left": "0.5%",  "width": "32.5%", "height": "48%" } },
+    { "type": "yolink-temp-bars", "id": "yl-upright-freezer", "device": "Upright Freezer", "minRange": 10, "humidity": false, "style": { "top": "51%", "left": "34%",   "width": "32.5%", "height": "48%" } },
+    { "type": "yolink-temp-bars", "id": "yl-house",           "device": "House",            "minRange": 10, "humidity": false, "style": { "top": "51%", "left": "67.5%", "width": "32%",   "height": "48%" } }
   ]
 }

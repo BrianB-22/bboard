@@ -339,5 +339,42 @@ function setDirty(val) {
   document.getElementById('save-bar').classList.toggle('dirty', val);
 }
 
+// ── YoLink device list ────────────────────────────────────────────
+async function loadYoLinkDevices(forceRefresh = false) {
+  const status  = document.getElementById('yl-status');
+  const table   = document.getElementById('yl-table');
+  const tbody   = document.getElementById('yl-tbody');
+  const loadBtn = document.getElementById('yl-load-btn');
+  const refBtn  = document.getElementById('yl-refresh-btn');
+
+  status.textContent = 'Loading…';
+  loadBtn.disabled = true;
+
+  try {
+    const url = '/api/admin/yolink-devices' + (forceRefresh ? '?refresh=1' : '');
+    const { devices, disabled, error } = await fetch(url).then(r => r.json());
+
+    if (disabled) { status.textContent = 'YoLink not configured.'; return; }
+    if (error)    { status.textContent = `Error: ${error}`; return; }
+
+    const sorted = [...devices].sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
+    tbody.innerHTML = sorted.map(d => `
+      <tr>
+        <td><code>${d.name}</code></td>
+        <td class="dim">${d.type}</td>
+        <td class="dim" style="font-size:0.75rem">${d.deviceId}</td>
+      </tr>`).join('');
+
+    table.style.display = '';
+    loadBtn.style.display = 'none';
+    refBtn.style.display  = '';
+    status.textContent = `${devices.length} device${devices.length !== 1 ? 's' : ''}`;
+  } catch (e) {
+    status.textContent = `Failed: ${e.message}`;
+  } finally {
+    loadBtn.disabled = false;
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────
 loadSchedules().then(() => load());

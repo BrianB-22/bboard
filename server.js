@@ -594,6 +594,7 @@ const YOLINK_STATE_METHODS = {
   DoorSensor:    'DoorSensor.getState',
   MotionSensor:  'MotionSensor.getState',
   COSmokeSensor: 'COSmokeSensor.getState',
+  LeakSensor:         'LeakSensor.getState',
   MultiOutlet:        'MultiOutlet.getState',
   PowerFailureAlarm:  'PowerFailureAlarm.getState',
 };
@@ -654,6 +655,12 @@ function normalizeYoLink(type, state, online, reportAt) {
       online, reportAt,
     };
   }
+  if (type === 'LeakSensor') return {
+    leak: state?.state === 'alert',
+    battery: state?.battery,
+    stateChangedAt: state?.stateChangedAt,
+    online, reportAt,
+  };
   if (type === 'PowerFailureAlarm') return {
     powerSupply: state?.powerSupply ?? true,
     alarm: state?.state === 'alert',
@@ -1160,6 +1167,17 @@ app.post('/api/admin/screens/:name/restore', (req, res) => {
     if (existsSync(to))   return res.status(409).json({ error: 'A screen with that name already exists' });
     renameSync(from, to);
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/yolink-devices', async (req, res) => {
+  if (!YOLINK_ENABLED) return res.json({ devices: [], disabled: true });
+  try {
+    if (req.query.refresh) _yolinkDevices = null;
+    const devices = await getYoLinkDevices();
+    res.json({ devices: devices.map(d => ({ name: d.name, type: d.type, deviceId: d.deviceId })) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

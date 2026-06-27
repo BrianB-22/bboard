@@ -1708,7 +1708,7 @@ html, body {
 }
 
 .spark-label {
-  font-size: 9px;
+  font-size: 7px;
   fill: rgba(255,255,255,0.5);
   font-family: var(--font-main);
 }
@@ -1785,13 +1785,42 @@ html, body {
 .yld-open   { color: var(--accent-red); text-shadow: 0 0 20px rgba(239,83,80,0.5); }
 .yld-closed { color: var(--accent-green); }
 .yld-unknown { color: var(--text-secondary); }
+.yld-dry    { color: var(--accent-green); }
+.yld-leak   { color: var(--accent-red); text-shadow: 0 0 24px rgba(239,83,80,0.7); animation: leak-pulse 1s ease-in-out infinite; }
+
+.widget-yl-leak-all {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+.yl-leak-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 10px;
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+.yl-leak-cell:last-child { border-right: none; }
+.yl-leak-empty { color: rgba(255,255,255,0.3); padding: 20px; font-size: 0.9rem; }
+
+@keyframes leak-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
 
 .yld-changed {
   font-size: clamp(0.95rem, 1.6vw, 1.3rem);
   color: var(--text-secondary);
 }
 
-.yld-recent { color: var(--accent-red); font-weight: 600; }
+.yld-recent  { color: var(--accent-red); font-weight: 600; }
+.yld-lowbat  { font-size: clamp(0.7rem, 1.1vw, 0.85rem); color: #ff5252; font-weight: 600; }
 
 /* ─── YoLink Sensors ─────────────────────────────────────────── */
 .widget-yolink {
@@ -1988,6 +2017,26 @@ html, body {
 .yl-smoke-badge-ok    { background: rgba(0,80,40,0.75);   color: #69f0ae; border: 1px solid rgba(105,240,174,0.3); }
 .yl-smoke-badge-alarm { background: rgba(200,30,30,0.82); color: #fff;    border: 1px solid rgba(255,80,80,0.5); }
 .yl-smoke-badge-warn  { background: rgba(180,130,0,0.82); color: #fff;    border: 1px solid rgba(255,200,50,0.5); }
+
+#yl-leak-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: clamp(0.55rem, 0.85vw, 0.7rem);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.45);
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+#yl-leak-badge[hidden] { display: none; }
+#yl-leak-badge span:first-child { opacity: 0.75; font-weight: 500; }
+#yl-leak-badge span:last-child  { font-size: clamp(0.6rem, 0.95vw, 0.78rem); }
 
 .yl-banner-row {
   padding: 8px 14px;

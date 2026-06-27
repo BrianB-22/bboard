@@ -102,6 +102,22 @@
       <p class="dim">These screen files have been soft-deleted. Restore to make them available again.</p>
       <ul id="deleted-list"></ul>
     </section>
+
+    <section class="card" id="yolink-section">
+      <h2>YoLink Devices</h2>
+      <p class="dim">All devices on your YoLink account. Use these names in screen JSON widget configs.</p>
+      <div style="margin-bottom:12px">
+        <button type="button" class="ghost" id="yl-load-btn" onclick="loadYoLinkDevices(false)">Load Devices</button>
+        <button type="button" class="ghost" id="yl-refresh-btn" onclick="loadYoLinkDevices(true)" style="display:none">↺ Refresh</button>
+        <span id="yl-status" class="dim" style="margin-left:10px"></span>
+      </div>
+      <table id="yl-table" style="display:none">
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Device ID</th></tr>
+        </thead>
+        <tbody id="yl-tbody"></tbody>
+      </table>
+    </section>
   </main>
 
   <div id="save-bar">

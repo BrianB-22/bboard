@@ -5,7 +5,7 @@ import {
   renderNHLScores, renderNHLSchedule, renderNHLBracket, renderRSS,
   renderText, renderScheduledText, renderCountdown, renderSunTimes,
   renderGauge, renderJSON, renderCalendar, renderWeekCalendar,
-  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkTemp, renderYoLinkTempBars, renderYoLinkOutlet, renderYoLinkSmoke,
+  renderAstroInfo, renderCalendarMonth, renderYoLink, renderYoLinkDoor, renderYoLinkLeak, renderYoLinkTemp, renderYoLinkTempBars, renderYoLinkOutlet, renderYoLinkSmoke,
   renderServerStats, renderServerStorage,
   renderServerHardware, renderServerDrives, renderServerUPS, renderServerLoad, renderServerDocker,
   renderStockTicker, renderStockCountdown, renderStockCharts,
@@ -511,13 +511,14 @@ async function mountWidget(widgetCfg) {
       break;
 
     case 'yolink-temp-bars': {
+      const tempBarsHours = widgetCfg.hours || 48;
       const findTempB = d => d?.sensors?.find(
         s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
       );
       async function drawTempBars() {
-        const hist = await fetchYoLinkHistory(24).catch(() => null);
+        const hist = await fetchYoLinkHistory(tempBarsHours).catch(() => null);
         el.innerHTML = ''; el.className = 'widget';
-        renderYoLinkTempBars(el, findTempB(yolinkData), hist, 24, yolinkData, widgetCfg);
+        renderYoLinkTempBars(el, findTempB(yolinkData), hist, tempBarsHours, yolinkData, widgetCfg);
       }
       await drawTempBars();
       yolinkCallbacks.push(async () => drawTempBars());
@@ -557,6 +558,18 @@ async function mountWidget(widgetCfg) {
       yolinkCallbacks.push(d => {
         el.innerHTML = ''; el.className = 'widget';
         renderYoLinkDoor(el, findSensor(d), widgetCfg, d);
+      });
+      break;
+    }
+
+    case 'yolink-leak': {
+      const findLeak = d => d?.sensors?.find(
+        s => s.name === widgetCfg.device || s.id === widgetCfg.deviceId
+      );
+      renderYoLinkLeak(el, findLeak(yolinkData), widgetCfg, yolinkData);
+      yolinkCallbacks.push(d => {
+        el.innerHTML = ''; el.className = 'widget';
+        renderYoLinkLeak(el, findLeak(d), widgetCfg, d);
       });
       break;
     }
@@ -821,13 +834,19 @@ function startRotation() {
 }
 
 // ─── YoLink alert banner ─────────────────────────────────────────
+function sensorLowBattery(s) {
+  return s.alarm?.lowBattery === true || (s.battery != null && parseInt(s.battery) <= 1);
+}
+
 function computeYoLinkAlerts(data) {
   const alerts = [];
   if (!data?.sensors) return alerts;
   for (const s of data.sensors) {
+    if (s.type === 'LeakSensor' && s.leak)
+      alerts.push({ level: 'error', msg: `💧 ${s.name}: WATER DETECTED` });
     if (s.alarm?.highTemp)    alerts.push({ level: 'error', msg: `🌡️ ${s.name}: high temp` });
     if (s.alarm?.lowTemp)     alerts.push({ level: 'warn',  msg: `❄️ ${s.name}: low temp` });
-    if (s.alarm?.lowBattery)  alerts.push({ level: 'warn',  msg: `🔋 ${s.name}: battery low` });
+    if (sensorLowBattery(s))  alerts.push({ level: 'warn',  msg: `🔋 ${s.name}: battery low` });
     if (s.type === 'PowerFailureAlarm' && (s.alarm || s.powerSupply === false))
       alerts.push({ level: 'error', msg: `⚡ ${s.name}: POWER FAILURE` });
     if (s.type === 'COSmokeSensor') {
@@ -905,6 +924,31 @@ function updateAlertBanner(data) {
       ? '<span>⚡ POWER MONITOR</span><span>UNAVAILABLE</span>'
       : '<span>⚡ POWER MONITOR</span><span>OK</span>';
     powerBadge.hidden = false;
+  }
+
+  // Leak sensor badge — aggregates all LeakSensors
+  let leakBadge = document.getElementById('yl-leak-badge');
+  if (!leakBadge) {
+    leakBadge = document.createElement('div');
+    leakBadge.id = 'yl-leak-badge';
+    corner.appendChild(leakBadge);
+  }
+  const leakSensors = data?.sensors?.filter(s => s.type === 'LeakSensor') ?? [];
+  if (!leakSensors.length) {
+    leakBadge.hidden = true;
+  } else {
+    const leaking  = leakSensors.filter(s => s.leak);
+    const offline  = leakSensors.filter(s => s.online === false);
+    const allOff   = offline.length === leakSensors.length;
+    leakBadge.className = leaking.length  ? 'yl-smoke-badge-alarm'
+                        : allOff          ? 'yl-smoke-badge-warn'
+                        :                   'yl-smoke-badge-ok';
+    leakBadge.innerHTML = leaking.length
+      ? `<span>💧 WATER LEAK</span><span>${leaking.map(s => s.name.replace(/\s+sensor$/i, '')).join(' · ')}</span>`
+      : allOff
+      ? '<span>💧 LEAK SENSORS</span><span>UNAVAILABLE</span>'
+      : '<span>💧 LEAK SENSORS</span><span>ALL DRY</span>';
+    leakBadge.hidden = false;
   }
 
   let tempAlerts = document.getElementById('yl-temp-alerts');
@@ -994,6 +1038,7 @@ async function init() {
   config = await fetchConfig(uid);
   if (config.error) {
     document.body.innerHTML = `<div style="color:white;padding:40px;font-family:monospace">Schedule "${uid}" not found. <a href="/" style="color:#8af">← Back</a></div>`;
+    scheduleNightlyReload();
     return;
   }
 
@@ -1008,6 +1053,7 @@ async function init() {
       ? `Screen "${pinnedScreen}" not found in orchestrator.json.`
       : 'No enabled pages in orchestrator.json';
     document.body.innerHTML = `<div style="color:white;padding:40px;font-family:monospace">${msg}</div>`;
+    scheduleNightlyReload();
     return;
   }
 
@@ -1068,6 +1114,7 @@ function showOfflineOverlay() {
 
 init().catch(err => {
   console.error('bboard init error:', err);
+  scheduleNightlyReload();
   if (isNetworkError(err)) {
     showOfflineOverlay();
   } else {
