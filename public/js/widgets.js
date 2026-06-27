@@ -694,7 +694,7 @@ export function renderWeatherDaySummary(el, data) {
     ? `<div class="wds-precip-lines">${precipLines.map(l => `<span class="wds-precip-item">${l}</span>`).join('')}</div>`
     : '';
 
-  el.innerHTML = `<div class="wds-hdr">Today</div>${svg}${precipHtml}`;
+  el.innerHTML = `<div class="wds-hdr">Today — Forecast</div>${svg}${precipHtml}`;
 }
 
 // ─── Next Precipitation Widget ───────────────────────────────────
